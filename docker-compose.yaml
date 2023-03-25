@@ -4,6 +4,6 @@ services:
     flowui:
         build: .
         ports:
-            - 5000:80
+            - 10000:80
         volumes:
             - ./data:/data

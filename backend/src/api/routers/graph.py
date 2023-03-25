@@ -10,17 +10,17 @@ router = APIRouter(prefix="/graph")
 
 
 class NodeSchema(BaseModel):
-    id: int
-    type: str
-    params: dict
+    uid: int
+    name: str
+    params: str
 
 
 @router.post("/nodes")
 async def create_node(node: Node):
-    constructor = globals()[node.type]
+    constructor = globals()[node.name]
     graph.add_node(node.id, obj=constructor())
 
 
-@router.patch("/nodes/{node_id}")
-async def update_node(id: int, node: Node):
-    graph[id]["obj"].set_params()
+@router.patch("/nodes/{uid}")
+async def update_node(uid: int, node: Node):
+    graph[uid]["obj"].set_params()
