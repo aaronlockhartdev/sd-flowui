@@ -3,7 +3,7 @@ from os import environ as env
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-import api as api
+import api
 
 app = FastAPI()
 

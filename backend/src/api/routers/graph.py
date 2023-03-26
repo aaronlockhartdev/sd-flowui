@@ -82,33 +82,3 @@ class DeleteNode(BaseModel):
 @router.delete("/delete_node")
 async def delete_node(node: DeleteNode):
     graph.remove_node(node.id)
-
-
-class ConnectionManager:
-    def __init__(self):
-        self.active: list[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active.append(websocket)
-        websocket.send_json(graph_utils.graph_to_json(graph))
-
-    def disconnect(self, websocket: WebSocket):
-        self.active.remove(websocket)
-
-    async def update(self, update: dict):
-        for websocket in self.active:
-            await websocket.send_json(update)
-
-
-manager = ConnectionManager()
-
-
-@router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            pass
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
