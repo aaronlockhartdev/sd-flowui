@@ -11,9 +11,7 @@ class Node:
                 setattr(self, k, v["default"])
 
     def set_params(self, **kwargs: dict) -> None:
-        for k, v in kwargs:
-            assert k in self.params and v.isinstance(self.params[k]["type"])
-
+        for k, v in kwargs.items():
             setattr(self, k, v)
 
 

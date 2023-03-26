@@ -20,6 +20,17 @@ from .node import StartNode
 
 class LoadCheckpoint(StartNode):
     def __init__(self) -> None:
+        ckpts = [
+            os.path.join(path, name)
+            for path, _, name in os.walk(
+                os.join(env["DATA_DIR"], "models", "checkpoints")
+            )
+        ]
+
+        configs = [
+            os.path.join(path, name)
+            for path, _, name in os.walk(os.join(env["DATA_DIR"], "configs"))
+        ]
         super().__init__(
             {
                 "clip": {"type": transformers.CLIPTextModel},
@@ -27,8 +38,16 @@ class LoadCheckpoint(StartNode):
                 "vae": {"type": diffusers.AutoencoderKL},
             },
             {
-                "ckpt_name": {"type": str},
-                "config_name": {"type": str},
+                "ckpt_path": {
+                    "type": str,
+                    "default": ckpts[0],
+                    "selection": ckpts,
+                },
+                "config_path": {
+                    "type": str,
+                    "default": configs[0],
+                    "selection": configs,
+                },
                 "upcast_att": {"type": bool, "default": True},
                 "use_ema": {"type": bool, "default": True},
                 "size_768": {"type": bool, "default": False},
@@ -36,11 +55,11 @@ class LoadCheckpoint(StartNode):
         )
 
     def __call__(self) -> None:
-        config_path = os.path.join(env["DATA_DIR"], "configs", self.config_name)
+        config_path = os.path.join(env["DATA_DIR"], "configs", self.config_path)
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
 
-        ckpt_path = os.join(env["DATA_DIR"], "models", "checkpoints", self.ckpt_name)
+        ckpt_path = os.join(env["DATA_DIR"], "models", "checkpoints", self.ckpt_path)
         if pathlib.Path(ckpt_path).suffix == "safetensors":
             ckpt = {}
             with safetensors.safe_open(ckpt_path, framework="pt", device="cpu") as f:
