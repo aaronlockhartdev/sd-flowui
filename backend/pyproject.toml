@@ -18,6 +18,7 @@ dependencies = [
     "diffusers[torch] ==0.14",
     "transformers >=4.27.3,<5",
     "networkx",
+    "watchfiles"
 ]
 dynamic = ["version", "description"]
 

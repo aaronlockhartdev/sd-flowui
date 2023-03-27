@@ -5,8 +5,7 @@ from fastapi.staticfiles import StaticFiles
 
 import api
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None)
 
-app.include_router(api.router, prefix="/v1")
-
+app.mount("/api/v1", api.app)
 app.mount("/", StaticFiles(directory=env["STATIC_DIR"], html=True))
