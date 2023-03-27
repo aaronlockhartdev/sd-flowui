@@ -6,6 +6,8 @@ import api.utils as utils
 import api.routers as routers
 
 file_watcher = utils.data.FileWatcher()
+websocket_handler = utils.websocket.WebSocketHandler()
+graph = utils.graph.Graph()
 
 
 @asynccontextmanager
@@ -20,9 +22,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(routers.graph)
-
-
-websocket_handler = utils.websocket.WebSocketHandler()
 
 
 @app.websocket("/ws")

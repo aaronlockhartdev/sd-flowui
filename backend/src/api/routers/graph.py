@@ -4,10 +4,11 @@ from typing import Annotated
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Body
 from pydantic import BaseModel, ValidationError, validator
 
-from api.utils.nodes import *
-import api.utils.graph as graph_utils
+import api.utils as utils
+import api.utils.nodes as nodes
 
-graph = nx.DiGraph()
+from api import graph
+
 router = APIRouter(prefix="/graph", tags=["graph"])
 
 
@@ -17,23 +18,24 @@ class CreateNode(BaseModel):
 
     @validator("id")
     def id_dne(cls, id):
-        if graph.has_node(id):
+        if utils.graph.has_node(id):
             raise ValueError(f"Node `{id}` already exists")
 
         return id
 
     @validator("type")
     def type_valid(cls, type):
-        if type not in globals():
+        if type not in nodes.constructors:
             raise ValueError(f"Invalid node type `{type}`")
 
         return type
 
 
-@router.post("/create_node")
+@router.post("/node")
 async def create_node(node: CreateNode):
-    constructor = globals()[node.type]
-    graph.add_node(node.id, obj=constructor())
+    constructor = nodes.constructors[node.type]
+
+    utils.graph.add_node(node.id, constructor())
 
 
 class UpdateNode(BaseModel):
@@ -63,7 +65,7 @@ class UpdateNode(BaseModel):
         return params
 
 
-@router.patch("/update_node")
+@router.patch("/node")
 async def update_node(node: UpdateNode):
     graph.nodes[node.id]["obj"].set_params(**node.params)
 
@@ -79,6 +81,6 @@ class DeleteNode(BaseModel):
         return id
 
 
-@router.delete("/delete_node")
+@router.delete("/node")
 async def delete_node(node: DeleteNode):
     graph.remove_node(node.id)
