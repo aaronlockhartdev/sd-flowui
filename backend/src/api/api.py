@@ -7,12 +7,11 @@ import api.routers as routers
 
 file_watcher = utils.data.FileWatcher()
 websocket_handler = utils.websocket.WebSocketHandler()
-graph = utils.graph.Graph()
+compute_graph = utils.graph.ComputeGraph()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start file watcher
     asyncio.create_task(file_watcher())
 
     yield

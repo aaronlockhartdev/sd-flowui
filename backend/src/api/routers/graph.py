@@ -7,7 +7,7 @@ from pydantic import BaseModel, ValidationError, validator
 import api.utils as utils
 import api.utils.nodes as nodes
 
-from api import graph
+from api import compute_graph
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
@@ -15,10 +15,11 @@ router = APIRouter(prefix="/graph", tags=["graph"])
 class CreateNode(BaseModel):
     id: int
     type: str
+    pos: dict[str, int]
 
     @validator("id")
     def id_dne(cls, id):
-        if utils.graph.has_node(id):
+        if compute_graph.has_node(id):
             raise ValueError(f"Node `{id}` already exists")
 
         return id
@@ -35,16 +36,17 @@ class CreateNode(BaseModel):
 async def create_node(node: CreateNode):
     constructor = nodes.constructors[node.type]
 
-    utils.graph.add_node(node.id, constructor())
+    compute_graph.add_node(node.id, constructor(), pos=pos)
 
 
 class UpdateNode(BaseModel):
     id: int
     params: dict
+    pos: dict[str, int]
 
     @validator("id")
     def node_exists(cls, id):
-        if not graph.has_node(id):
+        if not compute_graph.has_node(id):
             raise ValueError(f"Node `{id}` does not exist")
 
         return id
@@ -53,13 +55,13 @@ class UpdateNode(BaseModel):
     def kv_valid(cls, params, values):
         id = values["id"]
         for k, v in params.items():
-            if k not in graph.nodes[id]["obj"].params:
+            if k not in compute_graph.objs[id].params:
                 raise ValueError(
-                    f"Invalid key `{k}` for node of type `{type(graph.nodes[id]['obj']).__name__}`"
+                    f"Invalid key `{k}` for node of type `{type(compute_graph.objs[id]).__name__}`"
                 )
-            if not isinstance(v, graph.nodes[id]["obj"].params[k]["type"]):
+            if not isinstance(v, compute_graph.objs[id].params[k]["type"]):
                 raise ValueError(
-                    f"Invalid type `{type(v).__name__}` for key `{k}` and node of type `{type(graph.nodes[id]['obj']).__name__}`"
+                    f"Invalid type `{type(v).__name__}` for key `{k}` and node of type `{type(compute_graph.objs[id]).__name__}`"
                 )
 
         return params
@@ -67,7 +69,7 @@ class UpdateNode(BaseModel):
 
 @router.patch("/node")
 async def update_node(node: UpdateNode):
-    graph.nodes[node.id]["obj"].set_params(**node.params)
+    compute_graph.update_node(node.params)
 
 
 class DeleteNode(BaseModel):
@@ -75,7 +77,7 @@ class DeleteNode(BaseModel):
 
     @validator("id")
     def node_exists(cls, id):
-        if not graph.has_node(id):
+        if not compute_graph.has_node(id):
             raise ValueError(f"Node `{id}` does not exist")
 
         return id
@@ -83,4 +85,4 @@ class DeleteNode(BaseModel):
 
 @router.delete("/node")
 async def delete_node(node: DeleteNode):
-    graph.remove_node(node.id)
+    compute_graph.remove_node(node.id)

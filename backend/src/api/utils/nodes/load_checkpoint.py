@@ -15,11 +15,11 @@ from diffusers.pipelines.stable_diffusion.convert_from_ckpt import (
     convert_ldm_clip_checkpoint,
 )
 
-from .node import StartNode
+from .node import Node
 
 
-class LoadCheckpoint(StartNode):
-    def __init__(self) -> None:
+class LoadCheckpoint(Node):
+    def __init__(self):
         ckpts = [
             os.path.join(path, name)
             for path, _, name in os.walk(
@@ -31,35 +31,44 @@ class LoadCheckpoint(StartNode):
             os.path.join(path, name)
             for path, _, name in os.walk(os.join(env["DATA_DIR"], "configs"))
         ]
+
         super().__init__(
             {
-                "clip": {"type": transformers.CLIPTextModel},
-                "unet": {"type": diffusers.UNet2DConditionModel},
-                "vae": {"type": diffusers.AutoencoderKL},
-            },
-            {
-                "ckpt_path": {
-                    "type": str,
-                    "default": ckpts[0],
-                    "selection": ckpts,
+                "outputs": {
+                    "clip": {"name": "CLIP", "type": transformers.CLIPTextModel},
+                    "unet": {"name": "UNet", "type": diffusers.UNet2DConditionModel},
+                    "vae": {"name": "VAE", "type": diffusers.AutoencoderKL},
                 },
-                "config_path": {
-                    "type": str,
-                    "default": configs[0],
-                    "selection": configs,
+                "parameters": {
+                    "ckpt_path": {
+                        "name": "Checkpoint",
+                        "type": str,
+                        "value": ckpts[0],
+                        "selection": ckpts,
+                    },
+                    "cfg_path": {
+                        "name": "Config",
+                        "type": str,
+                        "value": configs[0],
+                        "selection": configs,
+                    },
+                    "upcast_att": {
+                        "name": "Upcast Attention",
+                        "type": bool,
+                        "value": False,
+                    },
+                    "use_ema": {"name": "Use EMA", "type": bool, "value": True},
+                    "size_768": {"name": "768 Model", "type": bool, "value": True},
                 },
-                "upcast_att": {"type": bool, "default": True},
-                "use_ema": {"type": bool, "default": True},
-                "size_768": {"type": bool, "default": False},
             },
         )
 
     def __call__(self) -> None:
-        config_path = os.path.join(env["DATA_DIR"], "configs", self.config_path)
+        config_path = os.path.join(env["DATA_DIR"], "configs", self._cfg_path)
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
 
-        ckpt_path = os.join(env["DATA_DIR"], "models", "checkpoints", self.ckpt_path)
+        ckpt_path = os.join(env["DATA_DIR"], "models", "checkpoints", self._ckpt_path)
         if pathlib.Path(ckpt_path).suffix == "safetensors":
             ckpt = {}
             with safetensors.safe_open(ckpt_path, framework="pt", device="cpu") as f:
@@ -68,21 +77,21 @@ class LoadCheckpoint(StartNode):
         else:
             ckpt = torch.load(ckpt_path)
 
-        return (
-            self._load_unet(ckpt, config),
-            self._load_vae(ckpt, config),
-            self._load_clip(ckpt, config),
-        )
+        return {
+            "unet": self._load_unet(ckpt, config),
+            "vae": self._load_vae(ckpt, config),
+            "clip": self._load_clip(ckpt, config),
+        }
 
     def _load_unet(self, ckpt, config) -> diffusers.UNet2DConditionModel:
         unet_config = create_unet_diffusers_config(
-            config, image_size=(768 if self.size_768 else 512)
+            config, image_size=(768 if self._size_768 else 512)
         )
 
         unet = diffusers.UNet2DConditionModel(**unet_config)
 
         unet_weights = convert_ldm_unet_checkpoint(
-            ckpt, unet_config, path=self.ckpt_path, extract_ema=self.use_ema
+            ckpt, unet_config, path=self._ckpt_path, extract_ema=self._use_ema
         )
 
         unet.load_state_dict(unet_weights)
@@ -91,7 +100,7 @@ class LoadCheckpoint(StartNode):
 
     def _load_vae(self, ckpt, config):
         vae_config = create_vae_diffusers_config(
-            config, image_size=(768 if self.size_768 else 512)
+            config, image_size=(768 if self._size_768 else 512)
         )
 
         vae = diffusers.AutoencoderKL(**vae_config)
