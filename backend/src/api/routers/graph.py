@@ -36,7 +36,7 @@ class CreateNode(BaseModel):
 async def create_node(node: CreateNode):
     constructor = nodes.constructors[node.type]
 
-    compute_graph.add_node(node.id, constructor(), pos=pos)
+    compute_graph.add_node(node.id, constructor(), pos=node.pos)
 
 
 class UpdateNode(BaseModel):
