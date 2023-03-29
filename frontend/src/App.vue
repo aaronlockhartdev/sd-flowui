@@ -1,28 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
 import HelloWorld from './components/HelloWorld.vue'
-</script>
-
-<script lang="ts">
-export default {
-  created: () => {
-    console.log('Establishing WebSocket connection')
-    const ws = new WebSocket(
-      `${location.protocol == 'https' ? 'wss' : 'ws'}://${location.hostname}:${
-        location.port
-      }/api/v1/ws`
-    )
-
-    ws.onmessage = (event) => {
-      console.log(event)
-    }
-
-    ws.onopen = (event) => {
-      console.log(event)
-      console.log('Successfully established WebSocket connection...')
-    }
-  }
-}
+import { websocket } from '@/services/websocket'
 </script>
 
 <template>
