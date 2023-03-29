@@ -1,6 +1,5 @@
 from os import environ as env
 import asyncio
-
 from watchfiles import awatch
 
 import api.utils as utils
@@ -16,3 +15,6 @@ class FileWatcher:
 
     def stop(self):
         self._stop_event.set()
+
+
+file_watcher = FileWatcher()

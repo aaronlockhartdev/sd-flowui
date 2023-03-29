@@ -23,43 +23,41 @@ class LoadCheckpoint(Node):
         ckpts = [
             os.path.join(path, name)
             for path, _, name in os.walk(
-                os.join(env["DATA_DIR"], "models", "checkpoints")
+                os.path.join(env["DATA_DIR"], "models", "checkpoints")
             )
         ]
 
         configs = [
             os.path.join(path, name)
-            for path, _, name in os.walk(os.join(env["DATA_DIR"], "configs"))
+            for path, _, name in os.walk(os.path.join(env["DATA_DIR"], "configs"))
         ]
 
         super().__init__(
-            {
-                "outputs": {
-                    "clip": {"name": "CLIP", "type": transformers.CLIPTextModel},
-                    "unet": {"name": "UNet", "type": diffusers.UNet2DConditionModel},
-                    "vae": {"name": "VAE", "type": diffusers.AutoencoderKL},
+            outputs={
+                "clip": {"name": "CLIP", "type": transformers.CLIPTextModel},
+                "unet": {"name": "UNet", "type": diffusers.UNet2DConditionModel},
+                "vae": {"name": "VAE", "type": diffusers.AutoencoderKL},
+            },
+            params={
+                "ckpt_path": {
+                    "name": "Checkpoint",
+                    "type": str,
+                    "default": "",
+                    "selection": ckpts,
                 },
-                "parameters": {
-                    "ckpt_path": {
-                        "name": "Checkpoint",
-                        "type": str,
-                        "value": ckpts[0],
-                        "selection": ckpts,
-                    },
-                    "cfg_path": {
-                        "name": "Config",
-                        "type": str,
-                        "value": configs[0],
-                        "selection": configs,
-                    },
-                    "upcast_att": {
-                        "name": "Upcast Attention",
-                        "type": bool,
-                        "value": False,
-                    },
-                    "use_ema": {"name": "Use EMA", "type": bool, "value": True},
-                    "size_768": {"name": "768 Model", "type": bool, "value": True},
+                "cfg_path": {
+                    "name": "Config",
+                    "type": str,
+                    "default": "",
+                    "selection": configs,
                 },
+                "upcast_att": {
+                    "name": "Upcast Attention",
+                    "type": bool,
+                    "default": False,
+                },
+                "use_ema": {"name": "Use EMA", "type": bool, "default": True},
+                "size_768": {"name": "768 Model", "type": bool, "default": True},
             },
         )
 
@@ -68,7 +66,9 @@ class LoadCheckpoint(Node):
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
 
-        ckpt_path = os.join(env["DATA_DIR"], "models", "checkpoints", self._ckpt_path)
+        ckpt_path = os.path.oin(
+            env["DATA_DIR"], "models", "checkpoints", self._ckpt_path
+        )
         if pathlib.Path(ckpt_path).suffix == "safetensors":
             ckpt = {}
             with safetensors.safe_open(ckpt_path, framework="pt", device="cpu") as f:

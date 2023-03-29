@@ -5,18 +5,14 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import api.utils as utils
 import api.routers as routers
 
-file_watcher = utils.data.FileWatcher()
-websocket_handler = utils.websocket.WebSocketHandler()
-compute_graph = utils.graph.ComputeGraph()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    asyncio.create_task(file_watcher())
+    asyncio.create_task(utils.data.file_watcher())
 
     yield
 
-    file_watcher.stop()
+    utils.data.file_watcher.stop()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -25,4 +21,4 @@ app.include_router(routers.graph)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket_handler(websocket)
+    await utils.websocket.websocket_handler(websocket)

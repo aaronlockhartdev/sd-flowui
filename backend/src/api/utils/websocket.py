@@ -43,12 +43,13 @@ class WebSocketHandler:
         self._active.remove(websocket)
 
     async def broadcast(self, stream: str, data: dict):
-        await asyncio.gather(
-            *[
-                ws.send_json({"stream": stream, "data": data})
-                for ws in self._active[stream]
-            ]
-        )
+        if stream in self._active:
+            await asyncio.gather(
+                *[
+                    ws.send_json({"stream": stream, "data": data})
+                    for ws in self._active[stream]
+                ]
+            )
 
     async def receive(self, websocket: WebSocket):
         data = await websocket.receive_json()
@@ -72,3 +73,6 @@ class WebSocketHandler:
             return func
 
         return inner
+
+
+websocket_handler = WebSocketHandler()

@@ -3,6 +3,28 @@ import { RouterLink, RouterView } from 'vue-router'
 import HelloWorld from './components/HelloWorld.vue'
 </script>
 
+<script lang="ts">
+export default {
+  created: () => {
+    console.log('Establishing WebSocket connection')
+    const ws = new WebSocket(
+      `${location.protocol == 'https' ? 'wss' : 'ws'}://${location.hostname}:${
+        location.port
+      }/api/v1/ws`
+    )
+
+    ws.onmessage = (event) => {
+      console.log(event)
+    }
+
+    ws.onopen = (event) => {
+      console.log(event)
+      console.log('Successfully established WebSocket connection...')
+    }
+  }
+}
+</script>
+
 <template>
   <header>
     <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
