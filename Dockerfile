@@ -1,5 +1,5 @@
 # Backend build stage
-FROM python:slim AS build1
+FROM python:buster AS build1
 SHELL ["/bin/bash", "-c"]
 
 # Create venv
@@ -37,7 +37,7 @@ COPY frontend .
 RUN npm run build
 
 # Web server execution
-FROM python:slim AS run
+FROM python:slim-buster AS run
 
 # Copy python venv
 ENV VIRTUAL_ENV=/opt/venv

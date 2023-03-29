@@ -1,37 +1,79 @@
-console.log('Establishing WebSocket connection')
+export class WebSocketHandler {
+  websocket: WebSocket | null
+  readonly _onMessage: Map<string, ((event: object) => void)[]>
+  readonly _url: string
+  _timer: NodeJS.Timer | null
+  readonly _retrySec: number
 
-function connect() {
-  return new WebSocket(
-    `${location.protocol.includes('https') ? 'wss' : 'ws'}://${location.hostname}:${
-      process.env.NODE_ENV === 'development' ? 8000 : location.port
-    }/api/v1/ws`
-  )
-}
+  constructor(url: string, retrySec: number) {
+    this.websocket = null
+    this._onMessage = new Map<string, ((data: object) => void)[]>()
+    this._onMessage.set('*', [console.log])
+    this._url = url
+    this._timer = null
+    this._retrySec = retrySec
 
-let websocket = connect()
-let retrier: NodeJS.Timer
+    this.init()
+  }
 
-const _on_message = new Map<string, ((data: object) => void)[]>()
+  init() {
+    console.log('Establishing WebSocket connection...')
 
-websocket.onmessage = (event) => {
-  for (const func of _on_message.get('*')!) {
-    const data = JSON.parse(event.data)
-    func(data)
+    this.websocket = new WebSocket(this._url)
+
+    this.websocket.onopen = (event) => {
+      console.log(event)
+      console.log('WebSocket connection successfully established...')
+    }
+
+    this.websocket.onclose = (event) => {
+      console.log(event)
+      this._timer = setTimeout(() => {
+        this.init()
+      }, this._retrySec)
+    }
+
+    this.websocket.onerror = (event) => {
+      this.websocket?.close()
+    }
+
+    this.websocket.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+      for (const fn of this._onMessage.get('*')!) {
+        fn(data.data)
+      }
+      if (this._onMessage.has(data.stream)) {
+        for (const fn of this._onMessage.get(data.stream)!) {
+          fn(data.data)
+        }
+      }
+    }
+  }
+
+  send(stream: string, data: object) {
+    this.websocket?.send(JSON.stringify({ stream: stream, data: data }))
+  }
+
+  onMessage(stream: string) {
+    return (target: any, memberName: string, propertyDescriptor: PropertyDescriptor) => {
+      if (this._onMessage.has(stream)) {
+        this._onMessage.get(stream)!.push(propertyDescriptor.value)
+      } else {
+        this._onMessage.set(stream, [propertyDescriptor.value])
+      }
+
+      return propertyDescriptor
+    }
   }
 }
 
-websocket.onopen = (event) => {
-  clearInterval(retrier)
-  console.log(event)
-  console.log('Successfully established WebSocket connection...')
-}
-
-websocket.onclose = (event) => {
-  retrier = setInterval(() => {
-    websocket = connect()
-  }, 1000)
-}
-
-window.websocket = websocket
-
-export { websocket }
+export const webSocketHandler = new WebSocketHandler(
+  // process.env.NODE_ENV === 'development'
+  //   ? 'ws://localhost:8000/ws'
+  //   : `${location.protocol.includes('https') ? 'wss' : 'ws'}://${location.hostname}:${
+  //       location.port
+  //     }/api/v1/ws`,
+  // 1000
+  'ws://localhost:8000/api/v1/ws',
+  1000
+)

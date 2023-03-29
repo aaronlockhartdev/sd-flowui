@@ -42,24 +42,27 @@ class ComputeGraph(nx.DiGraph):
     def maps(self) -> dict[tuple[int], dict[str, str]]:
         return {(u, v): m for u, v, m in self.edges.data("map")}
 
-    def _broadcast(func):
-        def wrapper(*args, **kwargs):
-            asyncio.create_task(
-                utils.websocket.websocket_handler.broadcast(
-                    "graph", data := func(*args, **kwargs)
+    def _broadcast(substream: str):
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                asyncio.create_task(
+                    utils.websocket.websocket_handler.broadcast(
+                        f"graph/{substream}", data := func(*args, **kwargs)
+                    )
                 )
-            )
-            return data
+                return data
 
-        return wrapper
+            return wrapper
 
-    @_broadcast
+        return decorator
+
+    @_broadcast("node")
     def add_node(self, id: int, obj: nodes.Node, pos: tuple[int] | None = None) -> dict:
         super().add_node(id, obj=obj, pos=(pos if pos else (0, 0)))
 
         return {"item": self._node_to_dict(id), "type": "add"}
 
-    @_broadcast
+    @_broadcast("node")
     def update_node(self, id: int, params: dict | None, pos: tuple[int] | None) -> dict:
         obj = self.objs[id]
         if params:
@@ -69,13 +72,13 @@ class ComputeGraph(nx.DiGraph):
 
         return {"update": {"nodes": [self._node_to_dict(id)]}}
 
-    @_broadcast
+    @_broadcast("node")
     def remove_node(self, id: int) -> dict:
         super().remove_node(id)
 
         return {"id": id, "type": "remove"}
 
-    @_broadcast
+    @_broadcast("edge")
     def add_edge(self, u: int, v: int, map_: dict) -> dict:
         super().add_edge(u, v, map=map_)
 

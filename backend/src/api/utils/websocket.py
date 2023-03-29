@@ -63,20 +63,14 @@ class WebSocketHandler:
             else:
                 func(data["data"])
 
-    def on_message(self, streams: str | set[str] | None):
+    def on_message(self, stream: str | None):
         def inner(func):
-            nonlocal streams
+            nonlocal stream
 
-            if not streams:
-                self._on_message["*"].append(func)
-            elif type(streams) is str:
-                streams = {streams}
-
-            for stream in streams:
-                if stream in self._on_message:
-                    self._on_message[stream].append(func)
-                else:
-                    self._on_message[stream] = [func]
+            if stream in self._on_message:
+                self._on_message[stream].append(func)
+            else:
+                self._on_message[stream] = [func]
 
             return func
 
