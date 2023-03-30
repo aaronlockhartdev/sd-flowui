@@ -5,28 +5,22 @@ import asyncio
 
 class WebSocketHandler:
     def __init__(self):
-        self._active: dict[WebSocket, set[str]] = {}
-        self._on_message: dict[str, list[function]] = {"*": []}
+        self._active: dict[WebSocket, set[str]] = dict()
+        self._on_message: dict[str, list[function]] = dict()
 
         @self.on_message("subscribe")
-        def subscribe(data, websocket):
+        def _(data, websocket):
             for stream in data["streams"]:
-                if stream in self._active:
-                    self._active[websocket].add(stream)
-                else:
-                    self._active[websocket] = {stream}
+                if data["action"] == "subscribe":
+                    if websocket in self._active:
+                        self._active[websocket].add(stream)
+                    else:
+                        self._active[websocket] = {stream}
+                elif data["action"] == "unsubscribe":
+                    self._active[websocket].remove(stream)
 
-        setattr(self, "subscribe", subscribe)
-
-        @self.on_message("unsubscribe")
-        def unsubscribe(data, websocket):
-            for stream in data["streams"]:
-                self._active[websocket].remove(stream)
-
-                if not self._active[websocket]:
-                    del self._active[websocket]
-
-        setattr(self, "unsubscribe", unsubscribe)
+            if websocket in self._active and not self._active[websocket]:
+                del self._active[websocket]
 
     async def __call__(self, websocket: WebSocket):
         await self.connect(websocket)
@@ -53,17 +47,15 @@ class WebSocketHandler:
         )
 
     async def receive(self, websocket: WebSocket):
-        data = await websocket.receive_json()
+        msg = await websocket.receive_json()
 
-        print(data)
-
-        for func in self._on_message[data["stream"]] + self._on_message["*"]:
+        for func in self._on_message[msg["stream"]]:
             if "websocket" in signature(func).parameters:
-                func(data["data"], websocket)
+                func(msg["data"], websocket)
             else:
-                func(data["data"])
+                func(msg["data"])
 
-    def on_message(self, stream: str | None):
+    def on_message(self, stream: str):
         def inner(func):
             nonlocal stream
 

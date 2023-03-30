@@ -7,8 +7,8 @@ import api.utils.nodes as nodes
 
 class ComputeGraph(nx.DiGraph):
     def _node_to_dict(self, id: int) -> dict:
-        obj = self.objs[id]
-        pos = self.poss[id]
+        obj: nodes.Node = self.nodes[id]["obj"]
+        pos: tuple[int] = self.nodes[id]["pos"]
 
         return {
             "id": id,
@@ -17,8 +17,8 @@ class ComputeGraph(nx.DiGraph):
             "position": {"x": pos[0], "y": pos[1]},
         }
 
-    def _edge_to_dict(self, u: int, v: int, map_: dict[str, str]) -> dict:
-        map_ = self.maps[(u, v)]
+    def _edge_to_dict(self, u: int, v: int) -> list[dict]:
+        map_ = self.edges[u, v]["map"]
         return [
             {
                 "id": f"e{u}{uh}-{v}{vh}",
@@ -30,59 +30,55 @@ class ComputeGraph(nx.DiGraph):
             for uh, vh in map_.items()
         ]
 
-    @property
-    def objs(self) -> dict[int, nodes.Node]:
-        return {k: v for k, v in self.nodes.data("obj")}
-
-    @property
-    def poss(self) -> dict[int, tuple[int]]:
-        return {k: v for k, v in self.nodes.data("pos")}
-
-    @property
-    def maps(self) -> dict[tuple[int], dict[str, str]]:
-        return {(u, v): m for u, v, m in self.edges.data("map")}
-
-    def _broadcast(substream: str):
-        def decorator(func):
-            def wrapper(*args, **kwargs):
-                asyncio.create_task(
-                    utils.websocket.websocket_handler.broadcast(
-                        f"graph/{substream}", data := func(*args, **kwargs)
-                    )
+    def broadcast_update(func):
+        def wrapper(*args, **kwargs):
+            asyncio.create_task(
+                utils.websocket.websocket_handler.broadcast(
+                    f"graph", data := func(*args, **kwargs)
                 )
-                return data
+            )
+            return data
 
-            return wrapper
+        return wrapper
 
-        return decorator
-
-    @_broadcast("node")
+    @broadcast_update
     def add_node(self, id: int, obj: nodes.Node, pos: tuple[int] | None = None) -> dict:
         super().add_node(id, obj=obj, pos=(pos if pos else (0, 0)))
 
-        return {"item": self._node_to_dict(id), "type": "add"}
+        return {"action": "add", "element": self._node_to_dict(id)}
 
-    @_broadcast("node")
+    @broadcast_update
     def update_node(self, id: int, params: dict | None, pos: tuple[int] | None) -> dict:
-        obj = self.objs[id]
         if params:
-            obj.params = params
+            self.nodes[id]["obj"].params = params
         if pos:
-            obj.pos = pos
+            self.nodes[id]["pos"] = pos
 
-        return {"update": {"nodes": [self._node_to_dict(id)]}}
+        return {"action": "update", "element": self._node_to_dict(id)}
 
-    @_broadcast("node")
+    @broadcast_update
     def remove_node(self, id: int) -> dict:
         super().remove_node(id)
 
-        return {"id": id, "type": "remove"}
+        return {"action": "remove", "id": id}
 
-    @_broadcast("edge")
+    @broadcast_update
     def add_edge(self, u: int, v: int, map_: dict) -> dict:
         super().add_edge(u, v, map=map_)
 
-        return {"create": {"edges": self._edge_to_dict(u, v)}}
+        return {"action": "add", "element": self._edge_to_dict(u, v)}
+
+    @broadcast_update
+    def update_edge(self, u: int, v: int, map_: dict) -> dict:
+        self.edges[u, v]["map"] = map_
+
+        return {"action": "update", "elements": self._edge_to_dict(u, v)}
+
+    @broadcast_update
+    def remove_edge(self, u: int, v: int) -> dict:
+        map = self.edges[u, v]["map"]
+        super().remove_edge()
+        return {"action": "remove", "ids": [f"e{u}{uh}-{v}{vh}" for uh, vh in map]}
 
     def __iter__(self):
         for id in self.nodes:
