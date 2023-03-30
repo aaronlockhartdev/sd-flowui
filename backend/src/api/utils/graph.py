@@ -5,20 +5,34 @@ import api.utils as utils
 import api.utils.nodes as nodes
 
 
+def broadcast_update(func):
+    def wrapper(*args, **kwargs):
+        asyncio.create_task(
+            utils.websocket.websocket_handler.broadcast(
+                f"graph", data := func(*args, **kwargs)
+            )
+        )
+        return data
+
+    return wrapper
+
+
 class ComputeGraph(nx.DiGraph):
-    def _node_to_dict(self, id: int) -> dict:
+    def _node_to_dict(self, id: int) -> list[dict]:
         obj: nodes.Node = self.nodes[id]["obj"]
         pos: tuple[int] = self.nodes[id]["pos"]
 
-        return {
-            "id": id,
-            "type": type(obj).__name__,
-            "data": obj.state,
-            "position": {"x": pos[0], "y": pos[1]},
-        }
+        return [
+            {
+                "id": id,
+                "type": type(obj).__name__,
+                "data": obj.state,
+                "position": {"x": pos[0], "y": pos[1]},
+            }
+        ]
 
     def _edge_to_dict(self, u: int, v: int) -> list[dict]:
-        map_ = self.edges[u, v]["map"]
+        map_: dict[str, str] = self.edges[u, v]["map"]
         return [
             {
                 "id": f"e{u}{uh}-{v}{vh}",
@@ -30,22 +44,11 @@ class ComputeGraph(nx.DiGraph):
             for uh, vh in map_.items()
         ]
 
-    def broadcast_update(func):
-        def wrapper(*args, **kwargs):
-            asyncio.create_task(
-                utils.websocket.websocket_handler.broadcast(
-                    f"graph", data := func(*args, **kwargs)
-                )
-            )
-            return data
-
-        return wrapper
-
     @broadcast_update
     def add_node(self, id: int, obj: nodes.Node, pos: tuple[int] | None = None) -> dict:
         super().add_node(id, obj=obj, pos=(pos if pos else (0, 0)))
 
-        return {"action": "add", "element": self._node_to_dict(id)}
+        return {"action": "add", "elements": self._node_to_dict(id)}
 
     @broadcast_update
     def update_node(self, id: int, params: dict | None, pos: tuple[int] | None) -> dict:
@@ -54,7 +57,7 @@ class ComputeGraph(nx.DiGraph):
         if pos:
             self.nodes[id]["pos"] = pos
 
-        return {"action": "update", "element": self._node_to_dict(id)}
+        return {"action": "update", "elements": self._node_to_dict(id)}
 
     @broadcast_update
     def remove_node(self, id: int) -> dict:
@@ -66,7 +69,7 @@ class ComputeGraph(nx.DiGraph):
     def add_edge(self, u: int, v: int, map_: dict) -> dict:
         super().add_edge(u, v, map=map_)
 
-        return {"action": "add", "element": self._edge_to_dict(u, v)}
+        return {"action": "add", "elements": self._edge_to_dict(u, v)}
 
     @broadcast_update
     def update_edge(self, u: int, v: int, map_: dict) -> dict:
@@ -82,7 +85,7 @@ class ComputeGraph(nx.DiGraph):
 
     def __iter__(self):
         for id in self.nodes:
-            yield self._node_to_dict(id)
+            yield from self._node_to_dict(id)
         for u, v in self.edges:
             yield from self._edge_to_dict(u, v)
 
