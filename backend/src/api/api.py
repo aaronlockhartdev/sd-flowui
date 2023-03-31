@@ -1,6 +1,10 @@
 import asyncio
+from os import environ as env
+
+
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
 
 import api.utils as utils
 import api.routers as routers
@@ -16,6 +20,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+if env["API_ENV"] == "development":
+    app.add_middleware(CORSMiddleware, allow_origins=["*"])
 app.include_router(routers.graph)
 
 

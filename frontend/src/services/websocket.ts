@@ -4,9 +4,9 @@ export class WebSocketHandler {
   active: boolean
   readonly _url: string
   readonly _retrySec: number
-  readonly _onMessage: Map<string, ((event: object) => void)[]>
-  readonly _onClose: ((..._: any) => void)[]
-  readonly _onOpen: ((..._: any) => void)[]
+  readonly _onMessage: Map<string, ((data: object) => void)[]>
+  readonly _onClose: Function[]
+  readonly _onOpen: Function[]
 
   constructor(url: string, retrySec: number) {
     this.websocket = null
@@ -16,8 +16,8 @@ export class WebSocketHandler {
     this._retrySec = retrySec
 
     this._onMessage = new Map<string, ((data: object) => void)[]>()
-    this._onClose = Array<(..._: any) => void>()
-    this._onOpen = Array<(..._: any) => void>()
+    this._onClose = []
+    this._onOpen = []
 
     this.init()
   }
@@ -30,16 +30,15 @@ export class WebSocketHandler {
     this.websocket.onopen = (event) => {
       this.active = true
 
-      for (const fn of this._onOpen) {
-        fn()
-      }
+      console.log('WebSocket connection established...')
+
+      for (const fn of this._onOpen) fn()
 
       this.websocket!.onclose = (event) => {
         this.active = false
 
-        for (const fn of this._onClose) {
-          fn()
-        }
+        for (const fn of this._onClose) fn()
+
         this._setTimer()
       }
     }
@@ -68,28 +67,24 @@ export class WebSocketHandler {
     }, this._retrySec)
   }
 
-  send(stream: string, data: object) {
-    this.websocket?.send(JSON.stringify({ stream: stream, data: data }))
+  async send(stream: string, data: object) {
+    this.websocket!.send(JSON.stringify({ stream: stream, data: data }))
   }
 
-  onMessage(stream: string) {
-    return (target: any, memberName: string, propertyDescriptor: PropertyDescriptor) => {
-      if (this._onMessage.has(stream)) {
-        this._onMessage.get(stream)!.push(propertyDescriptor.value)
-      } else {
-        this._onMessage.set(stream, [propertyDescriptor.value])
-      }
-
-      return propertyDescriptor
+  onMessage(stream: string, func: (data: object) => void) {
+    if (this._onMessage.has(stream)) {
+      this._onMessage.get(stream)!.push(func)
+    } else {
+      this._onMessage.set(stream, [func])
     }
   }
 
-  onClose(target: any, memberName: string, propertyDescriptor: PropertyDescriptor) {
-    this._onClose.push(propertyDescriptor.value)
+  onClose(func: Function) {
+    this._onClose.push(func)
   }
 
-  onOpen(target: any, memberName: string, propertyDescriptor: PropertyDescriptor) {
-    this._onOpen.push(propertyDescriptor.value)
+  onOpen(func: Function) {
+    this._onOpen.push(func)
   }
 }
 

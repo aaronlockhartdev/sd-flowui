@@ -48,6 +48,9 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 ENV STATIC_DIR=/srv/www
 COPY --from=build2 /usr/src/app/dist $STATIC_DIR
 
+# Enforce production environment
+ENV API_ENV=production
+
 # Expose port
 EXPOSE 80
 

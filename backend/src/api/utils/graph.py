@@ -9,10 +9,10 @@ def broadcast_update(func):
     def wrapper(*args, **kwargs):
         asyncio.create_task(
             utils.websocket.websocket_handler.broadcast(
-                f"graph", data := func(*args, **kwargs)
+                f"graph", msg := func(*args, **kwargs)
             )
         )
-        return data
+        return msg
 
     return wrapper
 
@@ -63,7 +63,7 @@ class ComputeGraph(nx.DiGraph):
     def remove_node(self, id: int) -> dict:
         super().remove_node(id)
 
-        return {"action": "remove", "id": id}
+        return {"action": "remove", "ids": [id]}
 
     @broadcast_update
     def add_edge(self, u: int, v: int, map_: dict) -> dict:
