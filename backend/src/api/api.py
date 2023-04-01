@@ -6,26 +6,29 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
-import api.utils as utils
-import api.routers as routers
+import api.services as services
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    asyncio.create_task(utils.data.file_watcher())
+    asyncio.create_task(services.file_watcher.watch())
 
     yield
 
-    utils.data.file_watcher.stop()
+    services.file_watcher.stop()
 
 
 app = FastAPI(lifespan=lifespan)
 
 if env["API_ENV"] == "development":
     app.add_middleware(CORSMiddleware, allow_origins=["*"])
-app.include_router(routers.graph)
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await utils.websocket.websocket_handler(websocket)
+    await services.websocket_handler.listen(websocket)
+
+
+import api.routers as routers
+
+app.include_router(routers.graph)

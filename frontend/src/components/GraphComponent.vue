@@ -13,13 +13,12 @@ onUnmounted(() => {
   graphHandler.removeRef(elements)
 })
 
-function hi() {
-  console.log('fu')
+function logElements() {
   console.log(graphHandler.elements)
 }
 </script>
 
 <template>
   <VueFlow v-model="elements" />
-  <button click="hi()">hi</button>
+  <button @click="logElements">logElements</button>
 </template>

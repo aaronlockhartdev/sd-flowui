@@ -15,51 +15,36 @@ from diffusers.pipelines.stable_diffusion.convert_from_ckpt import (
     convert_ldm_clip_checkpoint,
 )
 
-from .node import Node
+from .node import Node, NodeTemplate
 
 
 class LoadCheckpoint(Node):
-    def __init__(self):
-        ckpts = [
-            os.path.join(path, name)
-            for path, _, name in os.walk(
-                os.path.join(env["DATA_DIR"], "models", "checkpoints")
-            )
-        ]
-
-        configs = [
-            os.path.join(path, name)
-            for path, _, name in os.walk(os.path.join(env["DATA_DIR"], "configs"))
-        ]
-
-        super().__init__(
-            outputs={
-                "clip": {"name": "CLIP", "type": transformers.CLIPTextModel},
-                "unet": {"name": "UNet", "type": diffusers.UNet2DConditionModel},
-                "vae": {"name": "VAE", "type": diffusers.AutoencoderKL},
+    template = NodeTemplate(
+        params={
+            "ckpt_path": {
+                "name": "Checkpoint",
+                "type": str,
+                "default": "",
             },
-            params={
-                "ckpt_path": {
-                    "name": "Checkpoint",
-                    "type": str,
-                    "default": "",
-                    "selection": ckpts,
-                },
-                "cfg_path": {
-                    "name": "Config",
-                    "type": str,
-                    "default": "",
-                    "selection": configs,
-                },
-                "upcast_att": {
-                    "name": "Upcast Attention",
-                    "type": bool,
-                    "default": False,
-                },
-                "use_ema": {"name": "Use EMA", "type": bool, "default": True},
-                "size_768": {"name": "768 Model", "type": bool, "default": True},
+            "cfg_path": {
+                "name": "Config",
+                "type": str,
+                "default": "",
             },
-        )
+            "upcast_att": {
+                "name": "Upcast Attention",
+                "type": bool,
+                "default": False,
+            },
+            "use_ema": {"name": "Use EMA", "type": bool, "default": True},
+            "size_768": {"name": "768 Model", "type": bool, "default": True},
+        },
+        outputs={
+            "clip": {"name": "CLIP", "type": transformers.CLIPTextModel},
+            "unet": {"name": "UNet", "type": diffusers.UNet2DConditionModel},
+            "vae": {"name": "VAE", "type": diffusers.AutoencoderKL},
+        },
+    )
 
     def __call__(self) -> None:
         config_path = os.path.join(env["DATA_DIR"], "configs", self._cfg_path)

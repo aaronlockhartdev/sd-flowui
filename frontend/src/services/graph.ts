@@ -53,22 +53,34 @@ class GraphHandler {
   _startListening() {
     this._listening = true
 
-    if (!this._webSocketHandler.active) return
-
-    this._webSocketHandler.send('subscribe', { action: 'subscribe', streams: ['graph'] })
-    this._syncGraph()
+    if (this._webSocketHandler.active) {
+      this._webSocketHandler.send('subscribe', { action: 'subscribe', streams: ['graph'] })
+      this._syncGraph()
+    }
   }
 
   _stopListening() {
     this._listening = false
 
-    if (!this._webSocketHandler.active) return
-
-    this._webSocketHandler.send('subscribe', { action: 'unsubscribe', streams: ['graph'] })
+    if (this._webSocketHandler.active) {
+      this._webSocketHandler.send('subscribe', { action: 'unsubscribe', streams: ['graph'] })
+    }
   }
 
   async _syncGraph() {
-    const msg = await fetch(new URL('graph/', this._apiUrl), {
+    const components = await fetch(new URL('graph/components', this._apiUrl), {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json;charset=UTF-8'
+      }
+    }).then((res) => {
+      return res.json()
+    })
+
+    console.log(components)
+
+    const elements = await fetch(new URL('graph', this._apiUrl), {
       method: 'GET',
       headers: {
         Accept: 'application/json',
@@ -79,7 +91,7 @@ class GraphHandler {
     })
 
     this._elementsMap.clear()
-    for (const el of msg) {
+    for (const el of elements) {
       this._elementsMap.set(el.id, el.element)
     }
 

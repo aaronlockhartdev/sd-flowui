@@ -1,1 +1,1 @@
-from api.routers.graph import router as graph
+from .graph import router as graph

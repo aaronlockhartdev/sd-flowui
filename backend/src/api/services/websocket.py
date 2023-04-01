@@ -23,7 +23,7 @@ class WebSocketHandler:
             if websocket in self._active and not self._active[websocket]:
                 del self._active[websocket]
 
-    async def __call__(self, websocket: WebSocket):
+    async def listen(self, websocket: WebSocket):
         await self.connect(websocket)
         try:
             while True:
