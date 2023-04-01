@@ -11,8 +11,9 @@ class ComputeGraph(nx.DiGraph):
 
         return [
             {
-                "id": id,
-                "type": type(obj).__name__,
+                "id": str(id),
+                "label": (name := type(obj).__name__),
+                "type": "input",
                 "data": obj.params,
                 "position": {"x": obj.pos[0], "y": obj.pos[1]},
             }
@@ -32,6 +33,7 @@ class ComputeGraph(nx.DiGraph):
             for uh, vh in map_.items()
         ]
 
+    @staticmethod
     def _broadcast_update(func):
         def wrapper(*args, **kwargs):
             asyncio.create_task(
@@ -44,8 +46,8 @@ class ComputeGraph(nx.DiGraph):
         return wrapper
 
     @_broadcast_update
-    def add_node(self, id: int, type: str, pos: tuple[int] | None = None) -> dict:
-        obj = nodes.constructors[type](pos if pos else (0, 0))
+    def add_node(self, id: int, type: str, pos: tuple[int]) -> dict:
+        obj = nodes.constructors[type](pos)
 
         super().add_node(id, obj=obj)
 

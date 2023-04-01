@@ -1,12 +1,19 @@
+import { resolve } from 'path'
+
 export class WebSocketHandler {
   websocket: WebSocket | null
-  _timer: NodeJS.Timer | null
   active: boolean
+  readonly open: Promise<void>
+  readonly close: Promise<void>
+  readonly _messageCallbacks: Map<
+    string,
+    { promise: Promise<object>; res: (value: object) => void }
+  >
+  _openRes: () => void = () => {}
+  _closeRes: () => void = () => {}
+  _timer: NodeJS.Timer | null
   readonly _url: string
   readonly _retrySec: number
-  readonly _onMessage: Map<string, ((data: object) => void)[]>
-  readonly _onClose: Function[]
-  readonly _onOpen: Function[]
 
   constructor(url: string, retrySec: number) {
     this.websocket = null
@@ -15,14 +22,18 @@ export class WebSocketHandler {
     this._url = url
     this._retrySec = retrySec
 
-    this._onMessage = new Map<string, ((data: object) => void)[]>()
-    this._onClose = []
-    this._onOpen = []
+    this.open = new Promise((res, _) => {
+      this._openRes = res
+    })
+    this.close = new Promise((res, _) => {
+      this._closeRes = res
+    })
+    this._messageCallbacks = new Map()
 
-    this.init()
+    this.connect()
   }
 
-  init() {
+  connect() {
     console.log('Establishing WebSocket connection...')
 
     this.websocket = new WebSocket(this._url)
@@ -32,12 +43,12 @@ export class WebSocketHandler {
 
       console.log('WebSocket connection established...')
 
-      for (const fn of this._onOpen) fn()
+      this._openRes()
 
       this.websocket!.onclose = (event) => {
         this.active = false
 
-        for (const fn of this._onClose) fn()
+        this._closeRes()
 
         this._setTimer()
       }
@@ -52,18 +63,16 @@ export class WebSocketHandler {
     }
 
     this.websocket.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      if (this._onMessage.has(data.stream)) {
-        for (const fn of this._onMessage.get(data.stream)!) {
-          fn(data.data)
-        }
+      const msg = JSON.parse(event.data)
+      if (this._messageCallbacks.has(msg.stream)) {
+        this._messageCallbacks.get(msg.stream)?.res(msg.data)
       }
     }
   }
 
   _setTimer() {
     this._timer = setTimeout(() => {
-      this.init()
+      this.connect()
     }, this._retrySec)
   }
 
@@ -71,20 +80,16 @@ export class WebSocketHandler {
     this.websocket!.send(JSON.stringify({ stream: stream, data: data }))
   }
 
-  onMessage(stream: string, func: (data: object) => void) {
-    if (this._onMessage.has(stream)) {
-      this._onMessage.get(stream)!.push(func)
-    } else {
-      this._onMessage.set(stream, [func])
+  message(stream: string): Promise<object> {
+    if (!this._messageCallbacks.has(stream)) {
+      let res_: (value: object) => void
+      const promise = new Promise<object>((res, _) => {
+        res_ = res
+      })
+      this._messageCallbacks.set(stream, { promise: promise, res: res_! })
     }
-  }
 
-  onClose(func: Function) {
-    this._onClose.push(func)
-  }
-
-  onOpen(func: Function) {
-    this._onOpen.push(func)
+    return this._messageCallbacks.get(stream)?.promise!
   }
 }
 
