@@ -1,18 +1,15 @@
-import networkx as nx
-
 from fastapi import APIRouter
 from pydantic import BaseModel, validator
 
-import api.utils as utils
 import api.services as services
 import api.utils.nodes as nodes
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
 
-@router.get("/")
-async def read_graph():
-    return list(services.compute_graph)
+@router.get("/elements")
+async def read_elements():
+    return list(services.compute_graph.elements)
 
 
 @router.get("/components")
@@ -20,11 +17,15 @@ async def read_components():
     return [v.component for v in nodes.constructors.values()]
 
 
+class Position(BaseModel):
+    x: int = 0
+    y: int = 0
+
+
 class CreateNode(BaseModel):
     id: int
     type: str
-    posx: int
-    posy: int
+    pos: Position
 
     @validator("id")
     def id_dne(cls, id):
@@ -43,16 +44,15 @@ class CreateNode(BaseModel):
 
 @router.post("/node")
 async def create_node(node: CreateNode):
-    return services.compute_graph.add_node(
-        node.id, node.type, pos=(node.posx, node.posy)
+    await services.compute_graph.add_node(
+        node.id, node.type, pos=(node.pos.x, node.pos.y)
     )
 
 
 class UpdateNode(BaseModel):
     id: int
-    params: dict
-    posx: int
-    posy: int
+    params: dict | None = None
+    pos: Position
 
     @validator("id")
     def node_exists(cls, id):
@@ -80,7 +80,9 @@ class UpdateNode(BaseModel):
 
 @router.patch("/node")
 async def update_node(node: UpdateNode):
-    return services.compute_graph.update_node(node.params, pos=(node.posx, node.posy))
+    await services.compute_graph.update_node(
+        params=node.params, pos=(node.pos.x, node.pos.y)
+    )
 
 
 class DeleteNode(BaseModel):
@@ -96,4 +98,4 @@ class DeleteNode(BaseModel):
 
 @router.delete("/node")
 async def delete_node(node: DeleteNode):
-    return services.compute_graph.remove_node(node.id)
+    await services.compute_graph.remove_node(node.id)

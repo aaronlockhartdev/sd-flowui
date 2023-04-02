@@ -10,7 +10,6 @@ class WebSocketHandler:
 
         @self.on_message("subscribe")
         def _(data, websocket):
-            print(data)
             for stream in data["streams"]:
                 if data["action"] == "subscribe":
                     if websocket in self._active:
@@ -39,9 +38,6 @@ class WebSocketHandler:
             del self._active[websocket]
 
     async def broadcast(self, stream: str, data: dict):
-        print(data)
-        print(self._active)
-
         await asyncio.gather(
             *[
                 k.send_json({"stream": stream, "data": data})

@@ -3,7 +3,7 @@ import GraphComponent from '@/components/GraphComponent.vue'
 </script>
 
 <template>
-  <main>
+  <div class="wrapper">
     <GraphComponent />
-  </main>
+  </div>
 </template>

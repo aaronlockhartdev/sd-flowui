@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted } from 'vue'
 
 import { VueFlow, useVueFlow } from '@vue-flow/core'
-import type { GraphNode, GraphEdge, EdgeChange } from '@vue-flow/core'
+import type { Node, Edge } from '@vue-flow/core'
 
 import { webSocketHandler } from '@/services/websocket'
 
@@ -11,52 +11,71 @@ const apiUrl =
     ? 'http://localhost:8000/'
     : `${location.protocol}//${location.hostname}:${location.port}/api/v1/`
 
-let { applyNodeChanges, applyEdgeChanges, findNode, nodes, edges } = useVueFlow()
+let {
+  addNodes,
+  addEdges,
+  removeNodes,
+  removeEdges,
+  findNode,
+  findEdge,
+  setElements,
+  nodes,
+  edges
+} = useVueFlow()
 
-async function receiveUpdates() {
-  while (true) {
-    const data = (await webSocketHandler.message('graph')) as {
-      action: string
-      node?: GraphNode
-      nodeData?: {}
-      nodePos?: { x: number; y: number }
-      nodeId?: string
-      edges?: GraphEdge[]
-      edgeIds?: string[]
-    }
+webSocketHandler.addEventListener('message', (event) => {
+  const msg = (event as CustomEvent).detail
 
-    switch (data.action) {
-      case 'addNode':
-        applyNodeChanges([{ type: 'add', item: data.node! }])
-        break
-      case 'updateNode':
-        const node = findNode(data.nodeId!)
-        if (data.nodePos) {
-          applyNodeChanges([
-            { type: 'position', id: data.nodeId!, position: data.nodePos!, from: node?.position! }
-          ])
-        } else {
-          node!.data = data.nodeData!
-        }
-        break
-      case 'removeNode':
-        applyNodeChanges([{ type: 'remove', id: data.nodeId! }])
-        break
+  if (msg.stream != 'graph') return
 
-      case 'addEdges':
-        const addChanges: EdgeChange[] = []
-        for (const e of data.edges!) applyEdgeChanges([{ type: 'add', item: e }])
-        applyEdgeChanges(addChanges)
-        break
-
-      case 'removeEdges':
-        const removeChanges: EdgeChange[] = []
-        for (const id of data.edgeIds!) applyEdgeChanges([{ type: 'remove', id: id }])
-        applyEdgeChanges(removeChanges)
-        break
-    }
+  const data = msg.data as {
+    action: string
+    id?: string
+    node?: Node
+    edge?: Edge
   }
-}
+
+  switch (data.action) {
+    case undefined:
+      throw new Error(`Required value 'action' not received`)
+    case 'create_node':
+      if (!data.node) throw new Error(`Required value 'node' not received`)
+
+      addNodes([data.node])
+      break
+    case 'delete_node':
+      if (!data.id) throw new Error(`Required value 'id' not received`)
+
+      removeNodes([data.id])
+      break
+    case 'update_node':
+      if (!data.node) throw new Error(`Required value 'node' not received`)
+
+      const node_ = findNode(data.node.id)
+
+      if (!node_) {
+        syncGraph()
+        throw new Error(`Node ${data.node.id} does not exist, resyncing graph...`)
+      }
+
+      if (data.node.data) node_.data = data.node.data
+      if (data.node.position) node_.position = data.node.position
+
+      break
+    case 'create_edge':
+      if (!data.edge) throw new Error(`Required value 'edges' not received`)
+
+      addEdges([data.edge])
+      break
+    case 'delete_edge':
+      if (!data.id) throw new Error(`Required value 'ids' not received`)
+
+      removeEdges([data.id])
+      break
+    default:
+      throw new Error(`Unrecognized action ${data.action}`)
+  }
+})
 
 async function syncGraph() {
   const components = await fetch(new URL('graph/components', apiUrl), {
@@ -72,7 +91,7 @@ async function syncGraph() {
   for (const c of components) {
   }
 
-  const nodes_ = await fetch(new URL('graph/nodes', apiUrl), {
+  const elements = await fetch(new URL('graph/elements', apiUrl), {
     method: 'GET',
     headers: {
       Accept: 'application/json',
@@ -82,44 +101,26 @@ async function syncGraph() {
     return res.json()
   })
 
-  const edges_ = await fetch(new URL('graph/edges', apiUrl), {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json;charset=UTF-8'
-    }
-  }).then((res) => {
-    return res.json()
-  })
-
-  nodes.value = nodes_
-  edges.value = edges_
+  setElements(elements)
 }
 
-function startListening() {
+function init() {
   webSocketHandler.send('subscribe', { action: 'subscribe', streams: ['graph'] })
-  receiveUpdates()
   syncGraph()
 }
 
-async function restartListening() {
-  while (true) {
-    await webSocketHandler.open
-
-    startListening()
-  }
-}
-
 onMounted(async () => {
-  if (webSocketHandler.active) startListening()
+  if (webSocketHandler.active) init()
 
-  restartListening()
+  webSocketHandler.addEventListener('open', init)
 })
 
 onUnmounted(() => {
   if (webSocketHandler.active) {
     webSocketHandler.send('subscribe', { action: 'unsubscribe', streams: ['graph'] })
   }
+
+  webSocketHandler.removeEventListener('open', init)
 })
 
 function logElements() {

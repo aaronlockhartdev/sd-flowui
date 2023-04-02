@@ -3,7 +3,6 @@ import { createPinia } from 'pinia'
 
 // Initialize services
 import '@/services/websocket'
-// import '@/services/graph.ts.bak'
 
 // Initialize app
 import App from './App.vue'

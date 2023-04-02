@@ -1,34 +1,20 @@
-import { resolve } from 'path'
-
-export class WebSocketHandler {
+export class WebSocketHandler extends EventTarget {
   websocket: WebSocket | null
   active: boolean
-  readonly open: Promise<void>
-  readonly close: Promise<void>
-  readonly _messageCallbacks: Map<
-    string,
-    { promise: Promise<object>; res: (value: object) => void }
-  >
-  _openRes: () => void = () => {}
-  _closeRes: () => void = () => {}
+
   _timer: NodeJS.Timer | null
   readonly _url: string
   readonly _retrySec: number
 
   constructor(url: string, retrySec: number) {
+    super()
+
     this.websocket = null
-    this._timer = null
     this.active = false
+
+    this._timer = null
     this._url = url
     this._retrySec = retrySec
-
-    this.open = new Promise((res, _) => {
-      this._openRes = res
-    })
-    this.close = new Promise((res, _) => {
-      this._closeRes = res
-    })
-    this._messageCallbacks = new Map()
 
     this.connect()
   }
@@ -38,35 +24,32 @@ export class WebSocketHandler {
 
     this.websocket = new WebSocket(this._url)
 
-    this.websocket.onopen = (event) => {
+    this.websocket.onopen = () => {
       this.active = true
 
-      console.log('WebSocket connection established...')
-
-      this._openRes()
-
-      this.websocket!.onclose = (event) => {
+      this.websocket!.onclose = () => {
         this.active = false
 
-        this._closeRes()
+        super.dispatchEvent(new Event('close'))
 
         this._setTimer()
       }
+
+      console.log('WebSocket connection established...')
+
+      super.dispatchEvent(new Event('open'))
     }
 
-    this.websocket.onclose = (event) => {
+    this.websocket.onclose = () => {
       this._setTimer()
     }
 
-    this.websocket.onerror = (event) => {
+    this.websocket.onerror = () => {
       this.websocket?.close()
     }
 
     this.websocket.onmessage = (event) => {
-      const msg = JSON.parse(event.data)
-      if (this._messageCallbacks.has(msg.stream)) {
-        this._messageCallbacks.get(msg.stream)?.res(msg.data)
-      }
+      super.dispatchEvent(new CustomEvent('message', { detail: JSON.parse(event.data) }))
     }
   }
 
@@ -78,18 +61,6 @@ export class WebSocketHandler {
 
   async send(stream: string, data: object) {
     this.websocket!.send(JSON.stringify({ stream: stream, data: data }))
-  }
-
-  message(stream: string): Promise<object> {
-    if (!this._messageCallbacks.has(stream)) {
-      let res_: (value: object) => void
-      const promise = new Promise<object>((res, _) => {
-        res_ = res
-      })
-      this._messageCallbacks.set(stream, { promise: promise, res: res_! })
-    }
-
-    return this._messageCallbacks.get(stream)?.promise!
   }
 }
 
