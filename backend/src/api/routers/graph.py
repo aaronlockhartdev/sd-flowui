@@ -14,7 +14,7 @@ async def read_elements():
 
 @router.get("/components")
 async def read_components():
-    return [v.component for v in nodes.constructors.values()]
+    return {k: v.template_computed for k, v in nodes.constructors.items()}
 
 
 class Position(BaseModel):
@@ -25,6 +25,7 @@ class Position(BaseModel):
 class CreateNode(BaseModel):
     id: int
     type: str
+    params: dict
     pos: Position
 
     @validator("id")
@@ -45,14 +46,14 @@ class CreateNode(BaseModel):
 @router.post("/node")
 async def create_node(node: CreateNode):
     await services.compute_graph.add_node(
-        node.id, node.type, pos=(node.pos.x, node.pos.y)
+        node.id, node.type, node.params, (node.pos.x, node.pos.y)
     )
 
 
 class UpdateNode(BaseModel):
     id: int
     params: dict | None = None
-    pos: Position
+    pos: Position | None = None
 
     @validator("id")
     def node_exists(cls, id):
@@ -60,22 +61,6 @@ class UpdateNode(BaseModel):
             raise ValueError(f"Node `{id}` does not exist")
 
         return id
-
-    @validator("params")
-    def kv_valid(cls, params, values):
-        id = values["id"]
-        for k, v in params.items():
-            obj: nodes.Node = services.compute_graph.nodes[id]["obj"]
-            if k not in obj.params:
-                raise ValueError(
-                    f"Invalid key `{k}` for node of type `{type(obj).__name__}`"
-                )
-            if not isinstance(v, obj.params[k]["type"]):
-                raise ValueError(
-                    f"Invalid type `{type(v).__name__}` for key `{k}` and node of type `{type(obj).__name__}`"
-                )
-
-        return params
 
 
 @router.patch("/node")

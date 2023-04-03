@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import NodeComponent from '@/components/NodeComponent.vue'
+
+import { onMounted, onUnmounted, markRaw, type Component } from 'vue'
 
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import type { Node, Edge } from '@vue-flow/core'
@@ -11,7 +13,7 @@ const apiUrl =
     ? 'http://localhost:8000/'
     : `${location.protocol}//${location.hostname}:${location.port}/api/v1/`
 
-let {
+const {
   addNodes,
   addEdges,
   removeNodes,
@@ -23,8 +25,10 @@ let {
   edges
 } = useVueFlow()
 
+let components: object
+
 webSocketHandler.addEventListener('message', (event) => {
-  const msg = (event as CustomEvent).detail
+  const msg = (<CustomEvent>event).detail
 
   if (msg.stream != 'graph') return
 
@@ -51,15 +55,15 @@ webSocketHandler.addEventListener('message', (event) => {
     case 'update_node':
       if (!data.node) throw new Error(`Required value 'node' not received`)
 
-      const node_ = findNode(data.node.id)
+      const node = findNode(data.node.id)
 
-      if (!node_) {
+      if (!node) {
         syncGraph()
-        throw new Error(`Node ${data.node.id} does not exist, resyncing graph...`)
+        throw new Error(`Node '${data.node.id}' does not exist, resyncing graph...`)
       }
 
-      if (data.node.data) node_.data = data.node.data
-      if (data.node.position) node_.position = data.node.position
+      if (data.node.data) node.data = { ...node.data, ...data.node.data }
+      if (data.node.position) node.position = data.node.position
 
       break
     case 'create_edge':
@@ -73,12 +77,12 @@ webSocketHandler.addEventListener('message', (event) => {
       removeEdges([data.id])
       break
     default:
-      throw new Error(`Unrecognized action ${data.action}`)
+      throw new Error(`Unrecognized action '${data.action}''`)
   }
 })
 
 async function syncGraph() {
-  const components = await fetch(new URL('graph/components', apiUrl), {
+  const components_ = await fetch(new URL('graph/components', apiUrl), {
     method: 'GET',
     headers: {
       Accept: 'application/json',
@@ -88,8 +92,7 @@ async function syncGraph() {
     return res.json()
   })
 
-  for (const c of components) {
-  }
+  components = components_
 
   const elements = await fetch(new URL('graph/elements', apiUrl), {
     method: 'GET',
@@ -101,6 +104,7 @@ async function syncGraph() {
     return res.json()
   })
 
+  console.log(elements)
   setElements(elements)
 }
 
@@ -127,11 +131,13 @@ function logElements() {
   console.log(nodes.value)
   console.log(edges.value)
 }
+
+const nodeTypes = { node: markRaw(<Component>NodeComponent) }
 </script>
 
 <template>
   <div class="wrapper">
-    <VueFlow />
+    <VueFlow :node-types="nodeTypes" />
     <button @click="logElements">logElements</button>
   </div>
 </template>

@@ -16,34 +16,39 @@ from diffusers.pipelines.stable_diffusion.convert_from_ckpt import (
 )
 
 from .node import Node, NodeTemplate
+from .components import FileDropdown, Checkbox
 
 
 class LoadCheckpoint(Node):
     template = NodeTemplate(
-        params={
-            "ckpt_path": {
-                "name": "Checkpoint",
-                "type": str,
-                "default": "",
-            },
-            "cfg_path": {
-                "name": "Config",
-                "type": str,
-                "default": "",
-            },
-            "upcast_att": {
-                "name": "Upcast Attention",
-                "type": bool,
-                "default": False,
-            },
-            "use_ema": {"name": "Use EMA", "type": bool, "default": True},
-            "size_768": {"name": "768 Model", "type": bool, "default": True},
-        },
-        outputs={
-            "clip": {"name": "CLIP", "type": transformers.CLIPTextModel},
-            "unet": {"name": "UNet", "type": diffusers.UNet2DConditionModel},
-            "vae": {"name": "VAE", "type": diffusers.AutoencoderKL},
-        },
+        params=[
+            # {
+            #     "id": "ckpt_path",
+            #     "name": "Checkpoint",
+            #     "component": FileDropdown(directory="checkpoints"),
+            # },
+            # {
+            #     "id": "cfg_path",
+            #     "name": "Config",
+            #     "component": FileDropdown(directory="configs"),
+            # },
+            # {
+            #     "id": "upcast_att",
+            #     "name": "Upcast Attention",
+            #     "component": Checkbox(default=False),
+            # },
+            {"id": "use_ema", "name": "Use EMA", "component": Checkbox(default=True)},
+            # {
+            #     "id": "size_768",
+            #     "name": "768 Model",
+            #     "component": Checkbox(default=True),
+            # },
+        ],
+        outputs=[
+            {"id": "clip", "name": "CLIP", "type": transformers.CLIPTextModel},
+            {"id": "unet", "name": "UNet", "type": diffusers.UNet2DConditionModel},
+            {"id": "vae", "name": "VAE", "type": diffusers.AutoencoderKL},
+        ],
     )
 
     def __call__(self) -> None:

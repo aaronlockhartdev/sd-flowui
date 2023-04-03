@@ -56,7 +56,7 @@ class WebSocketHandler:
                 func(msg["data"])
 
     def on_message(self, stream: str):
-        def inner(func):
+        def decorator(func):
             nonlocal stream
 
             if stream in self._on_message:
@@ -66,7 +66,7 @@ class WebSocketHandler:
 
             return func
 
-        return inner
+        return decorator
 
 
 websocket_handler = WebSocketHandler()

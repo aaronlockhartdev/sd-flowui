@@ -26,8 +26,8 @@ class ComputeGraph(nx.DiGraph):
         return wrapper
 
     @_broadcast_update
-    def add_node(self, id: int, type: str, pos: tuple[int]) -> dict:
-        obj = nodes.constructors[type](pos)
+    def add_node(self, id: int, type: str, params: dict, pos: tuple[int]) -> dict:
+        obj = nodes.constructors[type](params, pos)
 
         super().add_node(id, obj=obj)
 
@@ -43,10 +43,10 @@ class ComputeGraph(nx.DiGraph):
 
         if params:
             obj.params = params
-            msg["nodes"].update({"data": params})
+            msg["node"].update({"data": {"values": params}})
         if pos:
             obj.pos = pos
-            msg["nodes"].update({"position": {"x": pos[0], "y": pos[1]}})
+            msg["node"].update({"position": {"x": pos[0], "y": pos[1]}})
 
         return msg
 
@@ -89,8 +89,8 @@ class ComputeGraph(nx.DiGraph):
         return {
             "id": str(id),
             "label": (name := type(obj).__name__),
-            "type": name,
-            "data": obj.params,
+            "type": "node",
+            "data": {"template": obj.template_computed, "values": obj.params},
             "position": {"x": obj.pos[0], "y": obj.pos[1]},
         }
 
