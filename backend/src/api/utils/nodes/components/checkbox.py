@@ -1,9 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import api.utils as utils
 
 
 class Checkbox(BaseModel):
-    name = "Checkbox"
+    type = Field("Checkbox", const=True)
 
     default: bool

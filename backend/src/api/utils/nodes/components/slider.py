@@ -1,8 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class FloatSlider(BaseModel):
-    name = "FloatSlider"
+    type = Field("FloatSlider", const=True)
 
     default: float
     minimum: float

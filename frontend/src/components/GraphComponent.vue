@@ -4,6 +4,7 @@ import NodeComponent from '@/components/NodeComponent.vue'
 import { onMounted, onUnmounted, markRaw, type Component } from 'vue'
 
 import { VueFlow, useVueFlow } from '@vue-flow/core'
+import { Background } from '@vue-flow/background'
 import type { Node, Edge } from '@vue-flow/core'
 
 import { webSocketHandler } from '@/services/websocket'
@@ -25,7 +26,8 @@ const {
   edges
 } = useVueFlow()
 
-let components: object
+let version: number
+let templates: object
 
 webSocketHandler.addEventListener('message', (event) => {
   const msg = (<CustomEvent>event).detail
@@ -33,11 +35,20 @@ webSocketHandler.addEventListener('message', (event) => {
   if (msg.stream != 'graph') return
 
   const data = msg.data as {
+    version: number
     action: string
     id?: string
     node?: Node
     edge?: Edge
   }
+
+  if (data.version <= version) return
+  else if (data.version > version + 1) {
+    syncGraph()
+    return
+  }
+
+  version++
 
   switch (data.action) {
     case undefined:
@@ -82,7 +93,7 @@ webSocketHandler.addEventListener('message', (event) => {
 })
 
 async function syncGraph() {
-  const components_ = await fetch(new URL('graph/components', apiUrl), {
+  const { version_, elements, templates_ } = await fetch(new URL('graph/', apiUrl), {
     method: 'GET',
     headers: {
       Accept: 'application/json',
@@ -92,19 +103,9 @@ async function syncGraph() {
     return res.json()
   })
 
-  components = components_
+  version = version_
+  templates = templates_
 
-  const elements = await fetch(new URL('graph/elements', apiUrl), {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json;charset=UTF-8'
-    }
-  }).then((res) => {
-    return res.json()
-  })
-
-  console.log(elements)
   setElements(elements)
 }
 
@@ -131,13 +132,13 @@ function logElements() {
   console.log(nodes.value)
   console.log(edges.value)
 }
-
-const nodeTypes = { node: markRaw(<Component>NodeComponent) }
 </script>
 
 <template>
   <div class="wrapper">
-    <VueFlow :node-types="nodeTypes" />
+    <VueFlow :node-types="{ node: markRaw(<Component>NodeComponent) }">
+      <Background style="background-color: #111827" pattern-color="#E5E7EB" />
+    </VueFlow>
     <button @click="logElements">logElements</button>
   </div>
 </template>

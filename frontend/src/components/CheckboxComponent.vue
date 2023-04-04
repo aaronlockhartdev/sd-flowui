@@ -1,37 +1,51 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-
-console.log('FUCK YEAH')
+import { watch, ref } from 'vue'
 
 const props = defineProps<{
   id: string
   name: string
+  value: boolean
   component: {
     default: boolean
   }
 }>()
 
-const emits = defineEmits(['onChange'])
+const emits = defineEmits(['updateVal'])
 
-let value = props.component.default
-
-const iconClass = computed(() => {
-  return {
-    'checkbox-icon': true,
-    ':checked': value
-  }
+const checked = ref(props.value)
+watch(checked, (val: boolean) => {
+  emits('updateVal', val)
 })
-
-function toggle() {
-  value = !value
-  emits('onChange', value)
-}
 </script>
 
 <template>
   <div class="wrapper">
-    <div :class="iconClass" @click="toggle" />
+    <div class="flex items-center py-0.5 pl-2">
+      <input
+        id="checkbox"
+        type="checkbox"
+        class="h-3.5 w-3.5 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-2 focus:ring-blue-600 focus:ring-offset-gray-800"
+        v-model="checked"
+      />
+      <label for="checkbox" class="ml-2 p-0 text-xs font-normal text-gray-300">{{
+        props.name
+      }}</label>
+    </div>
   </div>
 </template>
 
-<style scoped lang="sass"></style>
+<style scoped>
+.container {
+  padding: 100px;
+}
+
+.checkbox-icon {
+  background: black;
+  width: 1rem;
+  height: 1rem;
+}
+
+.checkbox-icon-checked {
+  background-color: white;
+}
+</style>

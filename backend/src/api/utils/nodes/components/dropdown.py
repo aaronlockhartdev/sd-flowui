@@ -1,13 +1,13 @@
 import os
 from os import environ as env
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, Field, validator
 
 import api.utils as utils
 
 
 class FileDropdown(BaseModel):
-    name = "FileDropdown"
+    type = Field("FileDropdown", const=True)
 
     directory: str
 
