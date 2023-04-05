@@ -60,7 +60,9 @@ export class WebSocketHandler extends EventTarget {
   }
 
   async send(stream: string, data: object) {
-    this.websocket!.send(JSON.stringify({ stream: stream, data: data }))
+    if (!this.websocket) throw new Error('Websocket not connected')
+
+    this.websocket.send(JSON.stringify({ stream: stream, data: data }))
   }
 }
 

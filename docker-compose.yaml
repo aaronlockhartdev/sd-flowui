@@ -3,6 +3,8 @@ version: '3.9'
 services:
     flowui:
         build: .
+        environment:
+            - DATA_DIR=/data
         ports:
             - 10000:80
         volumes:
