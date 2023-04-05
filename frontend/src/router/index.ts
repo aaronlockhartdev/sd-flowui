@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import GraphView from '../views/GraphView.vue'
+import GraphView from '@/views/GraphView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -8,6 +8,11 @@ const router = createRouter({
       path: '/',
       name: 'graph',
       component: GraphView
+    },
+    {
+      path: '/browser',
+      name: 'browser',
+      component: () => import('@/views/BrowserView.vue')
     }
   ]
 })

@@ -4,6 +4,6 @@
   "compilerOptions": {
     "target": "ESNext",
     "composite": true,
-    "types": ["node", "vite/client"]
+    "types": ["node"]
   }
 }

@@ -57,7 +57,7 @@ class ComputeGraph(nx.DiGraph):
 
         super().add_node(id, obj=obj)
 
-        return {"action": "create_node", "node": self._node_to_dict(id)}
+        return {"action": "create", "element": self._node_to_dict(id)}
 
     @_broadcast_update
     def update_node(
@@ -65,14 +65,14 @@ class ComputeGraph(nx.DiGraph):
     ) -> dict:
         obj: nodes.Node = self.nodes[id]["obj"]
 
-        msg = {"action": "update_node", "node": {"id": id}}
+        msg = {"action": "update", "element": {"id": id}}
 
         if params:
             obj.params = params
-            msg["node"].update({"data": {"values": params}})
+            msg["element"].update({"data": {"values": params}})
         if pos:
             obj.pos = pos
-            msg["node"].update({"position": {"x": pos[0], "y": pos[1]}})
+            msg["element"].update({"position": {"x": pos[0], "y": pos[1]}})
 
         return msg
 
@@ -80,25 +80,25 @@ class ComputeGraph(nx.DiGraph):
     def remove_node(self, id: int) -> dict:
         super().remove_node(id)
 
-        return {"action": "remove_node", "id": str(id)}
+        return {"action": "remove", "id": str(id)}
 
     @_broadcast_update
     def add_edge(self, u: int, v: int, map_: dict) -> dict:
         super().add_edge(u, v, map=map_)
 
-        return [{"action": "create_edge", "edge": e} for e in self._edge_to_list(u, v)]
+        return [{"action": "create", "element": e} for e in self._edge_to_list(u, v)]
 
     @_broadcast_update
     def update_edge(self, u: int, v: int, map_: dict) -> dict:
         actions = [
-            {"action": "remove_edge", "id": f"e{u}{uh}-{v}{vh}"}
+            {"action": "remove", "id": f"e{u}{uh}-{v}{vh}"}
             for uh, vh in self.edges[u, v]["map"]
         ]
 
         self.edges[u, v]["map"] = map_
 
         actions += [
-            {"action": "create_edge", "edge": e} for e in self._edge_to_list(u, v)
+            {"action": "create", "element": e} for e in self._edge_to_list(u, v)
         ]
 
         return actions

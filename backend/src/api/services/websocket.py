@@ -8,7 +8,7 @@ class WebSocketHandler:
         self._active: dict[WebSocket, set[str]] = dict()
         self._on_message: dict[str, list[function]] = dict()
 
-        @self.on_message("subscribe")
+        @self.on_message("streams")
         def _(data, websocket):
             for stream in data["streams"]:
                 if data["action"] == "subscribe":

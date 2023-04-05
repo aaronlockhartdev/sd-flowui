@@ -10,9 +10,13 @@ import router from './router'
 
 import './assets/main.css'
 
-const app = createApp(App)
+export const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
+
+app.config.globalProperties.apiURL = import.meta.env.PROD
+  ? `${location.protocol}//${location.hostname}:${location.port}/api/v1/`
+  : 'http://localhost:8000/'
 
 app.mount('#app')

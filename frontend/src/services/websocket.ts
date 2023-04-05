@@ -3,18 +3,14 @@ export class WebSocketHandler extends EventTarget {
   active: boolean
 
   _timer: NodeJS.Timer | null
-  readonly _url: string
-  readonly _retrySec: number
 
-  constructor(url: string, retrySec: number) {
+  constructor() {
     super()
 
     this.websocket = null
     this.active = false
 
     this._timer = null
-    this._url = url
-    this._retrySec = retrySec
 
     this.connect()
   }
@@ -22,7 +18,13 @@ export class WebSocketHandler extends EventTarget {
   connect() {
     console.log('Establishing WebSocket connection...')
 
-    this.websocket = new WebSocket(this._url)
+    this.websocket = new WebSocket(
+      import.meta.env.DEV
+        ? 'ws://localhost:8000/ws'
+        : `${location.protocol.includes('https') ? 'wss' : 'ws'}://${location.hostname}:${
+            location.port
+          }/api/v1/ws`
+    )
 
     this.websocket.onopen = () => {
       this.active = true
@@ -56,7 +58,7 @@ export class WebSocketHandler extends EventTarget {
   _setTimer() {
     this._timer = setTimeout(() => {
       this.connect()
-    }, this._retrySec)
+    }, 1000)
   }
 
   async send(stream: string, data: object) {
@@ -66,11 +68,4 @@ export class WebSocketHandler extends EventTarget {
   }
 }
 
-export const webSocketHandler = new WebSocketHandler(
-  process.env.NODE_ENV === 'development'
-    ? 'ws://localhost:8000/ws'
-    : `${location.protocol.includes('https') ? 'wss' : 'ws'}://${location.hostname}:${
-        location.port
-      }/api/v1/ws`,
-  1000
-)
+export const webSocketHandler = new WebSocketHandler()

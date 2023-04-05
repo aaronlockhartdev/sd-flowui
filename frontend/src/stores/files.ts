@@ -15,7 +15,7 @@ export const useFilesStore = defineStore('files', () => {
   const fileStructure: Ref<Directory> = ref({})
 
   async function init() {
-    webSocketHandler.send('subscribe', { action: 'subcribe', streams: ['files'] })
+    webSocketHandler.send('streams', { action: 'subcribe', streams: ['files'] })
 
     fileStructure.value = await fetch(new URL('files/data/structure', apiUrl), {
       method: 'GET',
