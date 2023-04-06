@@ -6,7 +6,6 @@ import { useFilesStore } from '@/stores/files'
 import Child from '@/components/NodeFileDropdownChild.vue'
 
 const props = defineProps<{
-  id: string
   name: string
   value: string[]
   component: {
@@ -32,7 +31,7 @@ const expanded = ref(false)
 
 <template>
   <div class="wrapper">
-    <div class="inline-flex max-w-full items-center p-2">
+    <div class="mx-2 my-1 flex min-w-[11rem] items-center">
       <h1 class="pr-2 text-xs font-normal text-gray-300">{{ props.name }}</h1>
 
       <button

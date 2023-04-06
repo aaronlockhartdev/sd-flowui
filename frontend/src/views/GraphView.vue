@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import { markRaw } from 'vue'
-import type { Component } from 'vue'
-
-import { VueFlow } from '@vue-flow/core'
-import { Background } from '@vue-flow/background'
-
-import Node from '@/components/Node.vue'
+import Graph from '@/components/Graph.vue'
 
 import { useGraphStore } from '@/stores/graph'
 
@@ -14,20 +8,13 @@ const store = useGraphStore()
 
 <template>
   <div class="wrapper">
-    <VueFlow
-      v-model:nodes="store.nodes"
-      v-model:edges="store.edges"
-      :node-types="{ node: markRaw(<Component>Node) }"
-    >
-      <Background style="background-color: #0b0f19" pattern-color="#374151" :gap="16" />
-    </VueFlow>
+    <div class="flex items-stretch">
+      <ul class="left-0 flex h-full flex-col">
+        <li v-for="[k, _] in Object.entries(store.templates)">
+          <button @click="(type) => store.addNode(type)">{{ k }}</button>
+        </li>
+      </ul>
+      <Graph class="grow" />
+    </div>
   </div>
 </template>
-
-<style>
-@import '@vue-flow/core/dist/style.css';
-
-.vue-flow {
-  height: 100vh;
-}
-</style>

@@ -2,7 +2,6 @@
 import { watch, ref } from 'vue'
 
 const props = defineProps<{
-  id: string
   name: string
   value: boolean
   component: {
@@ -20,7 +19,7 @@ watch(checked, (val: boolean) => {
 
 <template>
   <div class="wrapper">
-    <div class="m-2 flex items-center">
+    <div class="mx-2 my-1 flex items-center">
       <input
         id="checkbox"
         type="checkbox"
