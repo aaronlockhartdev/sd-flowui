@@ -16,7 +16,7 @@ class FileWatcher:
     async def watch(self):
         async for _ in awatch(env["DATA_DIR"], stop_event=self._stop_event):
             self.dir_structure = self._read_dir(os.path.normpath(env["DATA_DIR"]))
-            websocket_handler.broadcast("files", self.dir_structure)
+            await websocket_handler.broadcast("files", self.dir_structure)
 
     def stop(self):
         self._stop_event.set()
@@ -24,12 +24,12 @@ class FileWatcher:
     @staticmethod
     def _read_dir(path):
         return {
-            os.path.basename(path): [
-                x
+            x: (
+                None
                 if os.path.isfile(path_ := os.path.join(path, x))
                 else FileWatcher._read_dir(path_)
-                for x in os.listdir(path)
-            ]
+            )
+            for x in os.listdir(path)
         }
 
 

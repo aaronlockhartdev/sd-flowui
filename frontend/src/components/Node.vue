@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import CheckboxComponent from '@/components/CheckboxComponent.vue'
 import { watch } from 'vue'
-import type { Component } from 'vue'
 
-const components: { [key: string]: Component } = {
-  Checkbox: CheckboxComponent
-}
+import Checkbox from '@/components/NodeCheckbox.vue'
+import FileDropdown from '@/components/NodeFileDropdown.vue'
 
 interface Connection {
   id: string
@@ -31,6 +28,8 @@ const props = defineProps<{
   }
 }>()
 
+console.log(props)
+
 const emits = defineEmits(['updateNode'])
 
 watch(props.data.values, (val) => {
@@ -40,14 +39,29 @@ watch(props.data.values, (val) => {
 
 <template>
   <div class="wrapper">
-    <div class="block max-w-md rounded-lg border border-gray-700 bg-gray-800 p-1 shadow">
+    <div
+      class="block min-w-[12rem] max-w-sm rounded-lg border border-gray-700 bg-gray-800 p-1 shadow"
+    >
       <h5 class="px-2 text-sm font-medium tracking-tight text-white">
         {{ props.data.label }}
       </h5>
       <hr class="my-1 h-px border-0 bg-gray-700" />
       <ul v-for="param in props.data.template.params">
         <li v-if="param.component.type === 'Checkbox'">
-          <CheckboxComponent
+          <Checkbox
+            :id="param.id"
+            :name="param.name"
+            :value="props.data.values[param.id]"
+            :component="param.component as any"
+            @update-val="
+              (val) => {
+                props.data.values[param.id] = val
+              }
+            "
+          />
+        </li>
+        <li v-else-if="param.component.type === 'FileDropdown'">
+          <FileDropdown
             :id="param.id"
             :name="param.name"
             :value="props.data.values[param.id]"

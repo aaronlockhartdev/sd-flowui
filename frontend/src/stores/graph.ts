@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Ref } from 'vue'
 
-import type { Node, Edge, Element } from '@vue-flow/core'
+import type { Node, Edge, Element, Connection } from '@vue-flow/core'
 
 import { app } from '@/main'
 import { webSocketHandler } from '@/services/websocket'
@@ -27,11 +27,13 @@ export interface Template {
 }
 
 export const useGraphStore = defineStore('graph', () => {
-  const templates: Ref<Template[]> = ref([])
-  const elements: Ref<Element[]> = ref([])
+  const templates: Ref<{ [key: string]: Template }> = ref({})
+  const nodes: Ref<Node[]> = ref([])
+  const edges: Ref<Edge[]> = ref([])
 
   let version = 0
-  const elementMap = new Map<string, Element>()
+  const nodeMap = new Map<string, Node>()
+  const edgeMap = new Map<string, Edge>()
 
   function startListening() {
     webSocketHandler.send('streams', { action: 'subscribe', streams: ['graph'] })
@@ -47,7 +49,8 @@ export const useGraphStore = defineStore('graph', () => {
     const {
       version: version_,
       templates: templates_,
-      elements: elements_
+      nodes: nodes_,
+      edges: edges_
     } = await fetch(new URL('graph/', app.config.globalProperties.apiURL), {
       method: 'GET',
       headers: {
@@ -60,11 +63,17 @@ export const useGraphStore = defineStore('graph', () => {
 
     version = version_
     templates.value = templates_
-    elements.value = elements_
+    nodes.value = nodes_
+    edges.value = edges_
 
-    elementMap.clear()
-    for (const element of elements_) {
-      elementMap.set(element.id, element)
+    nodeMap.clear()
+    for (const node of nodes_) {
+      nodeMap.set(node.id, node)
+    }
+
+    edgeMap.clear()
+    for (const edge of edges_) {
+      edgeMap.set(edge.id, edge)
     }
   }
 
@@ -77,7 +86,8 @@ export const useGraphStore = defineStore('graph', () => {
       version: number
       action: string
       id?: string
-      element?: Node
+      node?: Node
+      edge?: Edge
     }
 
     if (data.version <= version) return
@@ -91,40 +101,65 @@ export const useGraphStore = defineStore('graph', () => {
     switch (data.action) {
       case undefined:
         throw new Error(`Required value 'action' not received`)
-      case 'create':
-        if (!data.element) throw new Error(`Required value 'element' not received`)
+      case 'create_node':
+        if (!data.node) throw new Error(`Required value 'node' not received`)
 
-        elementMap.set(data.element.id, data.element)
+        nodeMap.set(data.node.id, data.node)
         break
-      case 'delete':
+      case 'delete_node':
         if (!data.id) throw new Error(`Required value 'id' not received`)
 
-        elementMap.delete(data.id)
+        nodeMap.delete(data.id)
         break
-      case 'update':
-        if (!data.element) throw new Error(`Required value 'element' not received`)
+      case 'update_node':
+        if (!data.node) throw new Error(`Required value 'node' not received`)
 
-        const node = <Node>elementMap.get(data.element.id)
+        const node = nodeMap.get(data.node.id)
 
         if (!node) {
           fetchGraph()
-          throw new Error(`Node '${data.element.id}' does not exist, resyncing graph...`)
+          throw new Error(`Node '${data.node.id}' does not exist, resyncing graph...`)
         }
 
-        if (data.element.data) node.data = { ...node.data, ...data.element.data }
-        if (data.element.position) node.position = data.element.position
+        if (data.node.data) node.data = { ...node.data, ...data.node.data }
+        if (data.node.position) node.position = data.node.position
 
+        break
+      case 'create_edge':
+        if (!data.edge) throw new Error(`Required value 'edge' not received`)
+
+        edgeMap.set(data.edge.id, data.edge)
+        break
+      case 'delete_edge':
+        if (!data.id) throw new Error(`Required value 'id' not received`)
+
+        edgeMap.delete(data.id)
         break
       default:
         throw new Error(`Unrecognized action '${data.action}''`)
     }
 
-    elements.value = Array.from(elementMap.values())
+    if (data.action.includes('node')) nodes.value = Array.from(nodeMap.values())
+    else if (data.action.includes('edge')) edges.value = Array.from(edgeMap.values())
   })
 
   if (webSocketHandler.active) startListening()
 
   webSocketHandler.addEventListener('open', startListening)
 
-  return { elements, templates }
+  function connectionValid(connection: Connection) {
+    let sourceHandleType = ''
+
+    for (const output of templates.value[nodeMap.get(connection.source)?.data.label].outputs) {
+      if (output.id === connection.sourceHandle) {
+        sourceHandleType = output.type
+        break
+      }
+    }
+
+    for (const input of templates.value[nodeMap.get(connection.target)?.data.label].inputs)
+      if (input.id === connection.targetHandle) return input.type === sourceHandleType
+  }
+
+  return { nodes, edges, templates, connectionValid }
 })

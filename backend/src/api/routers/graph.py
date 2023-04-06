@@ -32,9 +32,12 @@ class ComputeGraph(nx.DiGraph):
         super().__init__(*args, **kwargs)
 
     @property
-    def elements(self):
+    def nodes_computed(self):
         for id in self.nodes:
             yield self._node_to_dict(id)
+
+    @property
+    def edges_computed(self):
         for u, v in self.edges:
             yield from self._edge_to_list(u, v)
 
@@ -57,7 +60,7 @@ class ComputeGraph(nx.DiGraph):
 
         super().add_node(id, obj=obj)
 
-        return {"action": "create", "element": self._node_to_dict(id)}
+        return {"action": "create_node", "node": self._node_to_dict(id)}
 
     @_broadcast_update
     def update_node(
@@ -65,7 +68,7 @@ class ComputeGraph(nx.DiGraph):
     ) -> dict:
         obj: nodes.Node = self.nodes[id]["obj"]
 
-        msg = {"action": "update", "element": {"id": id}}
+        msg = {"action": "update_node", "node": {"id": id}}
 
         if params:
             obj.params = params
@@ -80,25 +83,25 @@ class ComputeGraph(nx.DiGraph):
     def remove_node(self, id: int) -> dict:
         super().remove_node(id)
 
-        return {"action": "remove", "id": str(id)}
+        return {"action": "delete_node", "id": str(id)}
 
     @_broadcast_update
     def add_edge(self, u: int, v: int, map_: dict) -> dict:
         super().add_edge(u, v, map=map_)
 
-        return [{"action": "create", "element": e} for e in self._edge_to_list(u, v)]
+        return [{"action": "create_edge", "edge": e} for e in self._edge_to_list(u, v)]
 
     @_broadcast_update
     def update_edge(self, u: int, v: int, map_: dict) -> dict:
         actions = [
-            {"action": "remove", "id": f"e{u}{uh}-{v}{vh}"}
+            {"action": "delete_edge", "id": f"e{u}{uh}-{v}{vh}"}
             for uh, vh in self.edges[u, v]["map"]
         ]
 
         self.edges[u, v]["map"] = map_
 
         actions += [
-            {"action": "create", "element": e} for e in self._edge_to_list(u, v)
+            {"action": "create_edge", "edge": e} for e in self._edge_to_list(u, v)
         ]
 
         return actions
@@ -144,21 +147,12 @@ compute_graph = ComputeGraph()
 router = APIRouter(prefix="/graph", tags=["graph"])
 
 
-@router.get("/elements")
-async def read_elements():
-    return list(compute_graph.elements)
-
-
-@router.get("/templates")
-async def read_components():
-    return {k: v.template_computed for k, v in nodes.constructors.items()}
-
-
 @router.get("/")
 async def read_graph():
     return {
         "version": compute_graph.version,
-        "elements": list(compute_graph.elements),
+        "nodes": list(compute_graph.nodes_computed),
+        "edges": list(compute_graph.edges_computed),
         "templates": {k: v.template_computed for k, v in nodes.constructors.items()},
     }
 

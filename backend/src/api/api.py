@@ -32,3 +32,4 @@ async def websocket_endpoint(websocket: WebSocket):
 import api.routers as routers
 
 app.include_router(routers.graph)
+app.include_router(routers.files)

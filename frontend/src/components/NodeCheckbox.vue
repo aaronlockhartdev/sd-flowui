@@ -20,7 +20,7 @@ watch(checked, (val: boolean) => {
 
 <template>
   <div class="wrapper">
-    <div class="flex items-center py-0.5 pl-2">
+    <div class="m-2 flex items-center">
       <input
         id="checkbox"
         type="checkbox"

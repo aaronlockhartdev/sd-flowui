@@ -27,11 +27,11 @@ class LoadCheckpoint(Node):
             #     "name": "Checkpoint",
             #     "component": FileDropdown(directory="checkpoints"),
             # },
-            # {
-            #     "id": "cfg_path",
-            #     "name": "Config",
-            #     "component": FileDropdown(directory="configs"),
-            # },
+            {
+                "id": "cfg_path",
+                "name": "Config",
+                "component": FileDropdown(directory=["configs"]),
+            },
             # {
             #     "id": "upcast_att",
             #     "name": "Upcast Attention",
