@@ -7,6 +7,8 @@ import type { Node, Edge, Connection } from '@vue-flow/core'
 
 import { app } from '@/main'
 import { webSocketHandler } from '@/services/websocket'
+import { useFilesStore } from '@/stores/files'
+import type { Directory } from '@/stores/files'
 
 export interface Template {
   inputs: {
@@ -22,11 +24,13 @@ export interface Template {
   params: {
     id: string
     name: string
-    component: { type: string; default: any }
+    component: { type: string; [key: string]: any }
   }[]
 }
 
 export const useGraphStore = defineStore('graph', () => {
+  const filesStore = useFilesStore()
+
   const templates: Ref<{ [key: string]: Template }> = ref({})
   const nodes: Ref<Node[]> = ref([])
   const edges: Ref<Edge[]> = ref([])
@@ -166,9 +170,26 @@ export const useGraphStore = defineStore('graph', () => {
   }
 
   async function addNode(type: string, position?: { x: number; y: number }) {
-    const params: { [key: string]: number | string | boolean } = {}
+    const params: { [key: string]: any } = {}
 
-    for (const param of templates.value[type].params) params[param.id] = param.component.default
+    for (const param of templates.value[type].params) {
+      if (param.component.type === 'FileDropdown') {
+        function recurse(subStructure: Directory): string[] {
+          let [k, v]: [string | null, Directory | null] = [null, null]
+          for ([k, v] of Object.entries(subStructure)) {
+            if (!v) return [k]
+          }
+
+          if (!k || !v) return ['']
+
+          return [k, ...recurse(v)]
+        }
+
+        params[param.id] = recurse(filesStore.getSubStructure(param.component.directory))
+      } else {
+        params[param.id] = param.component.default
+      }
+    }
 
     console.log(params)
 

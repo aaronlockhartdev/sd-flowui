@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
+import { MiniMap } from '@vue-flow/minimap'
 
 import Node from '@/components/Node.vue'
 
@@ -30,7 +31,7 @@ function onClick(evt: MouseEvent) {}
 <template>
   <div class="wrapper">
     <div class="flex h-[calc(100vh-3rem)] items-stretch">
-      <ul class="left-0 flex h-full flex-col border-r border-gray-700 bg-gray-900">
+      <ul class="left-0 flex h-full flex-col bg-gray-900 shadow">
         <li v-for="k in Object.keys(store.templates)" class="m-2">
           <button
             @click="onClick"
@@ -42,7 +43,7 @@ function onClick(evt: MouseEvent) {}
               evt.dataTransfer.effectAllowed = 'move'
 
               evt.dataTransfer.setData('application/vueflow', k)}"
-            class="rounded-lg bg-gray-800 px-2 py-1"
+            class="rounded-lg px-2 py-1"
           >
             <h5 class="px-2 text-sm font-medium text-white">
               {{ k }}
@@ -59,7 +60,17 @@ function onClick(evt: MouseEvent) {}
         @dragenter.prevent
         class="h-100"
       >
-        <Background style="background-color: #101523" pattern-color="#374151" :gap="16" />
+        <Background pattern-color="#4B5563" :gap="24" :size="1.6" class="bg-gray-900" />
+        <MiniMap
+          pannable
+          zoomable
+          node-color="#1C64F2"
+          node-stroke-color="#fff"
+          :node-stroke-width="20"
+          :node-border-radius="30"
+          mask-color="rgb(31, 41, 55, 0.6)"
+          class="left-0 rounded"
+        />
       </VueFlow>
     </div>
   </div>

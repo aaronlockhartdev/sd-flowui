@@ -13,6 +13,7 @@ interface Connection {
 }
 
 const props = defineProps<{
+  selected: boolean
   data: {
     type: string
     values: { [key: string]: any }
@@ -31,6 +32,10 @@ watch(values, (val) => emits('updateNode', val))
 <template>
   <div class="wrapper">
     <div
+      :class="{
+        'ring-blue-600': props.selected,
+        'ring-2': props.selected
+      }"
       class="block min-w-[12rem] max-w-sm rounded-lg border border-gray-700 bg-gray-800 p-1 shadow"
     >
       <h5 class="px-2 text-sm font-medium text-white">

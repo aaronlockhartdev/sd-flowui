@@ -22,27 +22,27 @@ from .components import FileDropdown, Checkbox
 class LoadCheckpoint(Node):
     template = NodeTemplate(
         params=[
-            # {
-            #     "id": "ckpt_path",
-            #     "name": "Checkpoint",
-            #     "component": FileDropdown(directory="checkpoints"),
-            # },
+            {
+                "id": "ckpt_path",
+                "name": "Checkpoint",
+                "component": FileDropdown(directory=["checkpoints"]),
+            },
             {
                 "id": "cfg_path",
                 "name": "Config",
-                "component": FileDropdown(default=[""], directory=["configs"]),
+                "component": FileDropdown(directory=["configs"]),
             },
-            # {
-            #     "id": "upcast_att",
-            #     "name": "Upcast Attention",
-            #     "component": Checkbox(default=False),
-            # },
+            {
+                "id": "upcast_att",
+                "name": "Upcast Attention",
+                "component": Checkbox(default=False),
+            },
             {"id": "use_ema", "name": "Use EMA", "component": Checkbox(default=True)},
-            # {
-            #     "id": "size_768",
-            #     "name": "768 Model",
-            #     "component": Checkbox(default=True),
-            # },
+            {
+                "id": "size_768",
+                "name": "768 Model",
+                "component": Checkbox(default=True),
+            },
         ],
         outputs=[
             {"id": "clip", "name": "CLIP", "type": transformers.CLIPTextModel},
