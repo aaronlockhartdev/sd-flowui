@@ -4,6 +4,7 @@ import { Handle, Position } from '@vue-flow/core'
 
 import Checkbox from '@/components/NodeCheckbox.vue'
 import FileDropdown from '@/components/NodeFileDropdown.vue'
+import { useGraphStore } from '@/stores/graph'
 
 interface Connection {
   id: string
@@ -13,21 +14,12 @@ interface Connection {
 
 const props = defineProps<{
   data: {
-    label: string
-    template: {
-      inputs: Connection[]
-      outputs: Connection[]
-      params: {
-        id: string
-        name: string
-        component: {
-          type: string
-        }
-      }[]
-    }
+    type: string
     values: { [key: string]: any }
   }
 }>()
+
+const store = useGraphStore()
 
 const emits = defineEmits(['updateNode'])
 
@@ -42,12 +34,12 @@ watch(values, (val) => emits('updateNode', val))
       class="block min-w-[12rem] max-w-sm rounded-lg border border-gray-700 bg-gray-800 p-1 shadow"
     >
       <h5 class="px-2 text-sm font-medium text-white">
-        {{ props.data.label }}
+        {{ props.data.type }}
       </h5>
       <hr class="my-1 h-px border-0 bg-gray-700" />
       <div class="flex items-stretch">
         <ul class="flex min-w-0 flex-col">
-          <li v-for="param in props.data.template.params">
+          <li v-for="param in store.templates[props.data.type].params">
             <Checkbox
               v-if="param.component.type === 'Checkbox'"
               :name="param.name"
@@ -66,7 +58,7 @@ watch(values, (val) => emits('updateNode', val))
         </ul>
         <ul class="right-0 ml-1 flex flex-col">
           <li
-            v-for="output in props.data.template.outputs"
+            v-for="output in store.templates[props.data.type].outputs"
             class="my-1 flex items-center justify-end"
           >
             <p class="mr-2 text-right text-xs font-normal text-gray-300">{{ output.name }}</p>

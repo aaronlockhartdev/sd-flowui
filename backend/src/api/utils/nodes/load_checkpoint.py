@@ -30,7 +30,7 @@ class LoadCheckpoint(Node):
             {
                 "id": "cfg_path",
                 "name": "Config",
-                "component": FileDropdown(directory=["configs"]),
+                "component": FileDropdown(default=[""], directory=["configs"]),
             },
             # {
             #     "id": "upcast_att",

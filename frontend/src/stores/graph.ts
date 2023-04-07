@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Ref } from 'vue'
 
-import type { Node, Edge, Element, Connection } from '@vue-flow/core'
+import type { Node, Edge, Connection } from '@vue-flow/core'
 
 import { app } from '@/main'
 import { webSocketHandler } from '@/services/websocket'
@@ -22,7 +22,7 @@ export interface Template {
   params: {
     id: string
     name: string
-    component: string
+    component: { type: string; default: any }
   }[]
 }
 
@@ -30,8 +30,8 @@ export const useGraphStore = defineStore('graph', () => {
   const templates: Ref<{ [key: string]: Template }> = ref({})
   const nodes: Ref<Node[]> = ref([])
   const edges: Ref<Edge[]> = ref([])
+  const version = ref(0)
 
-  let version = 0
   const nodeMap = new Map<string, Node>()
   const edgeMap = new Map<string, Edge>()
 
@@ -61,10 +61,12 @@ export const useGraphStore = defineStore('graph', () => {
       return res.json()
     })
 
-    version = version_
+    version.value = version_
     templates.value = templates_
     nodes.value = nodes_
     edges.value = edges_
+
+    console.log(templates_)
 
     nodeMap.clear()
     for (const node of nodes_) {
@@ -90,13 +92,15 @@ export const useGraphStore = defineStore('graph', () => {
       edge?: Edge
     }
 
-    if (data.version <= version) return
-    else if (data.version > version + 1) {
+    console.log(data)
+
+    if (data.version <= version.value) return
+    else if (data.version > version.value + 1) {
       fetchGraph()
       return
     }
 
-    version++
+    version.value++
 
     switch (data.action) {
       case undefined:
@@ -161,5 +165,24 @@ export const useGraphStore = defineStore('graph', () => {
       if (input.id === connection.targetHandle) return input.type === sourceHandleType
   }
 
-  return { nodes, edges, templates, connectionValid }
+  async function addNode(type: string, position?: { x: number; y: number }) {
+    const params: { [key: string]: number | string | boolean } = {}
+
+    for (const param of templates.value[type].params) params[param.id] = param.component.default
+
+    console.log(params)
+
+    await webSocketHandler.send('graph', {
+      version: version.value,
+      action: 'create_node',
+      id: version.value,
+      node: {
+        type: type,
+        params: params,
+        pos: position
+      }
+    })
+  }
+
+  return { nodes, edges, version, templates, connectionValid, addNode }
 })

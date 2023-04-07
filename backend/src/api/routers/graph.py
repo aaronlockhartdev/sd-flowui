@@ -15,14 +15,17 @@ class ComputeGraph(nx.DiGraph):
         self.version = 0
 
         @services.websocket_handler.on_message("graph")
-        def _(data, websocket: WebSocket):
+        async def _(data, websocket: WebSocket):
             if data["version"] < self.version:
-                websocket.send({"stream": "graph", "data": {"action": "sync_graph"}})
+                await websocket.send(
+                    {"stream": "graph", "data": {"action": "sync_graph"}}
+                )
+
                 return
 
             match data["action"]:
                 case "create_node":
-                    self.add_node(
+                    await self.add_node(
                         id=data["id"],
                         type=data["node"]["type"],
                         params=data["node"]["params"],
@@ -55,7 +58,7 @@ class ComputeGraph(nx.DiGraph):
         return wrapper
 
     @_broadcast_update
-    def add_node(self, id: int, type: str, params: dict, pos: tuple[int]) -> dict:
+    def add_node(self, id: int, type: str, params: dict, pos: dict) -> dict:
         obj = nodes.constructors[type](params, pos)
 
         super().add_node(id, obj=obj)
@@ -119,11 +122,10 @@ class ComputeGraph(nx.DiGraph):
             "id": str(id),
             "type": "node",
             "data": {
-                "label": type(obj).__name__,
-                "template": obj.template_computed,
+                "type": type(obj).__name__,
                 "values": obj.params,
             },
-            "position": {"x": obj.pos[0], "y": obj.pos[1]},
+            "position": obj.pos,
         }
 
     def _edge_to_list(self, u: int, v: int) -> list[dict]:

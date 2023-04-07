@@ -9,6 +9,7 @@ import api.utils as utils
 class FileDropdown(BaseModel):
     type = Field("FileDropdown", const=True)
 
+    default: list[str]
     directory: list[str]
 
     @validator("directory")

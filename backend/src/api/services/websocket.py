@@ -49,16 +49,18 @@ class WebSocketHandler:
     async def receive(self, websocket: WebSocket):
         msg = await websocket.receive_json()
 
+        asyncs = []
+
         for func in self._on_message[msg["stream"]]:
-            if "websocket" in signature(func).parameters:
-                func(msg["data"], websocket)
+            if asyncio.iscoroutinefunction(func):
+                asyncs.append(func(msg["data"], websocket))
             else:
-                func(msg["data"])
+                func(msg["data"], websocket)
+
+        await asyncio.gather(*asyncs)
 
     def on_message(self, stream: str):
         def decorator(func):
-            nonlocal stream
-
             if stream in self._on_message:
                 self._on_message[stream].append(func)
             else:
