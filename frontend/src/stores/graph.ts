@@ -234,7 +234,7 @@ export const useGraphStore = defineStore('graph', () => {
       position: position
     }
 
-    nodeMap.set(version.value - 1, nodeToVueFlow(node))
+    nodeMap.set(version.value, nodeToVueFlow(node))
 
     version.value++
     nodes.value = Array.from(nodeMap.values())
