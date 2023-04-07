@@ -15,6 +15,6 @@ class FileDropdown(BaseModel):
     def dir_exists(dir):
         if not os.path.exists(path := os.path.join(env["DATA_DIR"], *dir)):
             # raise ValueError(f"Directory {path} does not exist")
-            os.makedirs(path, existok=True)
+            os.makedirs(path, exist_ok=True)
 
         return dir
