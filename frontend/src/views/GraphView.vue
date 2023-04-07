@@ -3,7 +3,7 @@ import { markRaw, watch } from 'vue'
 import type { Component } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { VueFlow, useVueFlow } from '@vue-flow/core'
+import { VueFlow, useVueFlow, type NodeChange } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 
@@ -26,12 +26,25 @@ function onDrop(evt: DragEvent) {
 }
 
 function onClick(evt: MouseEvent) {}
+
+function onNodesChange(changes: NodeChange[]) {
+  for (const change of changes) {
+    switch (change.type) {
+      case 'remove':
+        store.removeNode(parseInt(change.id))
+        break
+
+      default:
+        break
+    }
+  }
+}
 </script>
 
 <template>
   <div class="wrapper">
-    <div class="flex h-[calc(100vh-3rem)] items-stretch">
-      <ul class="left-0 flex h-full flex-col bg-gray-900 shadow">
+    <div class="flex h-[calc(100vh-3rem)] items-stretch bg-gray-900">
+      <ul class="left-0 flex h-full flex-col border-r-[2px] border-gray-900 bg-gray-800">
         <li v-for="k in Object.keys(store.templates)" class="m-2">
           <button
             @click="onClick"
@@ -55,10 +68,11 @@ function onClick(evt: MouseEvent) {}
         v-model:nodes="store.nodes"
         v-model:edges="store.edges"
         :node-types="{ node: markRaw(<Component>Node) }"
+        @nodes-change="onNodesChange"
         @drop="onDrop"
         @dragover.prevent
         @dragenter.prevent
-        class="h-100"
+        class="h-100 rounded-lg"
       >
         <Background pattern-color="#4B5563" :gap="24" :size="1.6" class="bg-gray-900" />
         <MiniMap

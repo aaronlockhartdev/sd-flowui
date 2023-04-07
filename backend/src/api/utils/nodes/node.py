@@ -4,44 +4,45 @@ import api.utils as utils
 
 
 class Connection(BaseModel):
-    id: str
     name: str
     type: type
 
 
 class Param(BaseModel):
-    id: str
     name: str
     component: BaseModel
 
 
 class NodeTemplate(BaseModel):
-    inputs: list[Connection] = []
-    outputs: list[Connection] = []
-    params: list[Param]
+    inputs: dict[str, Connection] = {}
+    outputs: dict[str, Connection] = {}
+    values: dict[str, Param]
 
 
 class Node:
     template: NodeTemplate
 
-    def __init__(self, params, pos):
-        self.params = params
-        self.pos = pos
+    def __init__(self, values, position):
+        self.values = values
+        self.position = position
 
     @property
-    def params(self) -> dict:
-        return {p.id: getattr(self, f"_{p.id}") for p in self.template.params}
+    def values(self) -> dict:
+        return {k: getattr(self, f"_{k}") for k in self.template.values.keys()}
 
-    @params.setter
-    def params(self, params: dict):
-        for k, v in params.items():
+    @values.setter
+    def values(self, values: dict):
+        for k, v in values.items():
             setattr(self, f"_{k}", v)
 
     @utils.cached_classproperty
     def template_computed(cls) -> dict:
         dict = cls.template.dict()
 
-        for c in dict["inputs"] + dict["outputs"]:
-            c["type"] = c["type"].__name__
+        for v in dict["inputs"].values():
+            v["type"] = v["type"].__name__
+
+        for v in dict["outputs"].values():
+            v["type"] = v["type"].__name__
 
         return dict

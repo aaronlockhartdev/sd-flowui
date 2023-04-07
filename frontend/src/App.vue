@@ -18,7 +18,7 @@ import { RouterLink, RouterView } from 'vue-router'
             <RouterLink
               to="/"
               active-class="text-blue-500 bg-gray-900"
-              class="inline-block rounded-t-lg px-3 py-2 hover:bg-gray-900"
+              class="inline-block rounded-t-lg px-3 py-2 hover:text-white"
               >Graph</RouterLink
             >
           </li>
@@ -26,7 +26,7 @@ import { RouterLink, RouterView } from 'vue-router'
             <RouterLink
               to="/browser"
               active-class="text-blue-500 bg-gray-900"
-              class="inline-block rounded-t-lg px-3 py-2 hover:bg-gray-900"
+              class="inline-block rounded-t-lg px-3 py-2 hover:text-gray-200"
               >Browser</RouterLink
             >
           </li>

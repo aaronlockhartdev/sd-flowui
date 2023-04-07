@@ -5,8 +5,10 @@ import networkx as nx
 
 from fastapi import APIRouter, WebSocket
 from pydantic import BaseModel, validator
+from typing import Any
 
 import api.services as services
+import api.utils as utils
 import api.utils.nodes as nodes
 
 
@@ -28,8 +30,16 @@ class ComputeGraph(nx.DiGraph):
                     await self.add_node(
                         id=data["id"],
                         type=data["node"]["type"],
-                        params=data["node"]["params"],
-                        pos=data["node"]["pos"],
+                        values=data["node"]["values"],
+                        position=data["node"]["position"],
+                    )
+                case "delete_node":
+                    await self.remove_node(id=data["id"])
+                case "update_node":
+                    await self.update_node(
+                        id=data["id"],
+                        values=data["node"]["values"],
+                        position=data["node"]["position"],
                     )
 
         super().__init__(*args, **kwargs)
@@ -47,38 +57,47 @@ class ComputeGraph(nx.DiGraph):
     @staticmethod
     def _broadcast_update(func):
         async def wrapper(self: ComputeGraph, *args, **kwargs):
-            self.version += 1
             if type(res := func(self, *args, **kwargs)) is list:
-                await asyncio.gather(
-                    *[services.websocket_handler.broadcast("graph", msg) for msg in res]
-                )
+                coroutines = []
+                for msg in res:
+                    self.version += 1
+
+                    msg.update({"version": self.version})
+                    coroutines.append(
+                        services.websocket_handler.broadcast("graph", msg)
+                    )
+                await asyncio.gather(*coroutines)
+
             else:
+                self.version += 1
+
+                res.update({"version": self.version})
                 await services.websocket_handler.broadcast("graph", res)
 
         return wrapper
 
     @_broadcast_update
-    def add_node(self, id: int, type: str, params: dict, pos: dict) -> dict:
-        obj = nodes.constructors[type](params, pos)
+    def add_node(self, id: int, type: str, values: dict, position: dict) -> dict:
+        obj = nodes.constructors[type](values, position)
 
         super().add_node(id, obj=obj)
 
-        return {"action": "create_node", "node": self._node_to_dict(id)}
+        return {"action": "create_node", "node": self._node_to_dict(id).dict()}
 
     @_broadcast_update
     def update_node(
-        self, id: int, params: dict | None = None, pos: tuple[int] | None = None
+        self, id: int, values: dict | None = None, position: tuple[int] | None = None
     ) -> dict:
         obj: nodes.Node = self.nodes[id]["obj"]
 
         msg = {"action": "update_node", "node": {"id": id}}
 
-        if params:
-            obj.params = params
-            msg["element"].update({"data": {"values": params}})
-        if pos:
-            obj.pos = pos
-            msg["element"].update({"position": {"x": pos[0], "y": pos[1]}})
+        if values:
+            obj.values = values
+            msg["node"].update({"data": {"values": values}})
+        if position:
+            obj.position = position
+            msg["node"].update({"position": {"x": position[0], "y": position[1]}})
 
         return msg
 
@@ -86,59 +105,34 @@ class ComputeGraph(nx.DiGraph):
     def remove_node(self, id: int) -> dict:
         super().remove_node(id)
 
-        return {"action": "delete_node", "id": str(id)}
+        return {"action": "delete_node", "id": id}
 
     @_broadcast_update
     def add_edge(self, u: int, v: int, map_: dict) -> dict:
-        super().add_edge(u, v, map=map_)
-
-        return [{"action": "create_edge", "edge": e} for e in self._edge_to_list(u, v)]
-
-    @_broadcast_update
-    def update_edge(self, u: int, v: int, map_: dict) -> dict:
-        actions = [
-            {"action": "delete_edge", "id": f"e{u}{uh}-{v}{vh}"}
-            for uh, vh in self.edges[u, v]["map"]
-        ]
-
-        self.edges[u, v]["map"] = map_
-
-        actions += [
-            {"action": "create_edge", "edge": e} for e in self._edge_to_list(u, v)
-        ]
-
-        return actions
+        pass
 
     @_broadcast_update
     def remove_edge(self, u: int, v: int) -> dict:
-        map_ = self.edges[u, v]["map"]
-        super().remove_edge()
-        return [{"action": "remove_edge", "id": f"e{u}{uh}-{v}{vh}"} for uh, vh in map_]
+        pass
 
-    def _node_to_dict(self, id: int) -> dict:
+    def _node_to_dict(self, id: int) -> utils.NodeSchema:
         obj: nodes.Node = self.nodes[id]["obj"]
 
-        return {
-            "id": str(id),
-            "type": "node",
-            "data": {
-                "type": type(obj).__name__,
-                "values": obj.params,
-            },
-            "position": obj.pos,
-        }
+        return utils.NodeSchema(
+            id=id, type=type(obj).__name__, values=obj.values, position=obj.position
+        )
 
-    def _edge_to_list(self, u: int, v: int) -> list[dict]:
+    def _edge_to_list(self, u: int, v: int) -> list[utils.EdgeSchema]:
         map_: dict[str, str] = self.edges[u, v]["map"]
 
         return [
-            {
-                "id": f"e{u}{uh}-{v}{vh}",
-                "source": u,
-                "sourceHandle": uh,
-                "target": v,
-                "targetHandle": vh,
-            }
+            utils.EdgeSchema(
+                id=f"e{u}{uh}-{v}{vh}",
+                source=u,
+                sourceHandle=uh,
+                target=v,
+                targetHandle=vh,
+            )
             for uh, vh in map_.items()
         ]
 
@@ -157,70 +151,3 @@ async def read_graph():
         "edges": list(compute_graph.edges_computed),
         "templates": {k: v.template_computed for k, v in nodes.constructors.items()},
     }
-
-
-class Position(BaseModel):
-    x: int = 0
-    y: int = 0
-
-
-class CreateNode(BaseModel):
-    id: int
-    type: str
-    params: dict
-    pos: Position
-
-    @validator("id")
-    def id_dne(cls, id):
-        if compute_graph.has_node(id):
-            raise ValueError(f"Node `{id}` already exists")
-
-        return id
-
-    @validator("type")
-    def type_valid(cls, type):
-        if type not in nodes.constructors:
-            raise ValueError(f"Invalid node type `{type}`")
-
-        return type
-
-
-@router.post("/node")
-async def create_node(node: CreateNode):
-    await compute_graph.add_node(
-        node.id, node.type, node.params, (node.pos.x, node.pos.y)
-    )
-
-
-class UpdateNode(BaseModel):
-    id: int
-    params: dict | None = None
-    pos: Position | None = None
-
-    @validator("id")
-    def node_exists(cls, id):
-        if not compute_graph.has_node(id):
-            raise ValueError(f"Node `{id}` does not exist")
-
-        return id
-
-
-@router.patch("/node")
-async def update_node(node: UpdateNode):
-    await compute_graph.update_node(params=node.params, pos=(node.pos.x, node.pos.y))
-
-
-class DeleteNode(BaseModel):
-    id: int
-
-    @validator("id")
-    def node_exists(cls, id):
-        if not compute_graph.has_node(id):
-            raise ValueError(f"Node `{id}` does not exist")
-
-        return id
-
-
-@router.delete("/node")
-async def delete_node(node: DeleteNode):
-    await compute_graph.remove_node(node.id)

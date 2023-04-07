@@ -20,44 +20,46 @@ from .components import FileDropdown, Checkbox
 
 
 class LoadCheckpoint(Node):
+    _ckpt_path: list[str]
+    _cfg_path: list[str]
+    _upcast_att: bool
+    _use_ema: bool
+    _size_768: bool
+
     template = NodeTemplate(
-        params=[
-            {
-                "id": "ckpt_path",
+        values={
+            "ckpt_path": {
                 "name": "Checkpoint",
                 "component": FileDropdown(directory=["checkpoints"]),
             },
-            {
-                "id": "cfg_path",
+            "cfg_path": {
                 "name": "Config",
                 "component": FileDropdown(directory=["configs"]),
             },
-            {
-                "id": "upcast_att",
+            "upcast_att": {
                 "name": "Upcast Attention",
                 "component": Checkbox(default=False),
             },
-            {"id": "use_ema", "name": "Use EMA", "component": Checkbox(default=True)},
-            {
-                "id": "size_768",
+            "use_ema": {"name": "Use EMA", "component": Checkbox(default=True)},
+            "size_768": {
                 "name": "768 Model",
                 "component": Checkbox(default=True),
             },
-        ],
-        outputs=[
-            {"id": "clip", "name": "CLIP", "type": transformers.CLIPTextModel},
-            {"id": "unet", "name": "UNet", "type": diffusers.UNet2DConditionModel},
-            {"id": "vae", "name": "VAE", "type": diffusers.AutoencoderKL},
-        ],
+        },
+        outputs={
+            "clip": {"name": "CLIP", "type": transformers.CLIPTextModel},
+            "unet": {"name": "UNet", "type": diffusers.UNet2DConditionModel},
+            "vae": {"name": "VAE", "type": diffusers.AutoencoderKL},
+        },
     )
 
     def __call__(self) -> None:
-        config_path = os.path.join(env["DATA_DIR"], "configs", self._cfg_path)
+        config_path = os.path.join(env["DATA_DIR"], "configs", *self._cfg_path)
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
 
         ckpt_path = os.path.oin(
-            env["DATA_DIR"], "models", "checkpoints", self._ckpt_path
+            env["DATA_DIR"], "models", "checkpoints", *self._ckpt_path
         )
         if pathlib.Path(ckpt_path).suffix == "safetensors":
             ckpt = {}
@@ -81,7 +83,7 @@ class LoadCheckpoint(Node):
         unet = diffusers.UNet2DConditionModel(**unet_config)
 
         unet_weights = convert_ldm_unet_checkpoint(
-            ckpt, unet_config, path=self._ckpt_path, extract_ema=self._use_ema
+            ckpt, unet_config, extract_ema=self._use_ema
         )
 
         unet.load_state_dict(unet_weights)

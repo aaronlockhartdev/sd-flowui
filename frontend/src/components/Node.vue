@@ -44,30 +44,30 @@ watch(values, (val) => emits('updateNode', val))
       <hr class="my-1 h-px border-0 bg-gray-700" />
       <div class="flex items-stretch">
         <ul class="flex min-w-0 flex-col">
-          <li v-for="param in store.templates[props.data.type].params">
+          <li v-for="[k, v] in Object.entries(store.templates[props.data.type].values)">
             <Checkbox
-              v-if="param.component.type === 'Checkbox'"
-              :name="param.name"
-              :value="values[param.id]"
-              :component="param.component as any"
-              @update-val="(val) => (values[param.id] = val)"
+              v-if="v.component.type === 'Checkbox'"
+              :name="v.name"
+              :value="values[k]"
+              :component="v.component as any"
+              @update-val="(val) => (values[k] = val)"
             />
             <FileDropdown
-              v-else-if="param.component.type === 'FileDropdown'"
-              :name="param.name"
-              :value="values[param.id]"
-              :component="param.component as any"
-              @update-val="(val) => (values[param.id] = val)"
+              v-else-if="v.component.type === 'FileDropdown'"
+              :name="v.name"
+              :value="values[k]"
+              :component="v.component as any"
+              @update-val="(val) => (values[k] = val)"
             />
           </li>
         </ul>
         <ul class="right-0 ml-1 flex flex-col">
           <li
-            v-for="output in store.templates[props.data.type].outputs"
+            v-for="[k, v] in Object.entries(store.templates[props.data.type].outputs)"
             class="my-1 flex items-center justify-end"
           >
-            <p class="mr-2 text-right text-xs font-normal text-gray-300">{{ output.name }}</p>
-            <Handle :id="output.id" type="source" class="static h-1 w-1 rounded-full bg-gray-500" />
+            <p class="mr-2 text-right text-xs font-normal text-gray-300">{{ v.name }}</p>
+            <Handle :id="k" type="source" class="static h-1 w-1 rounded-full bg-gray-500" />
           </li>
         </ul>
       </div>

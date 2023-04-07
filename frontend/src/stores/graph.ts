@@ -12,20 +12,57 @@ import type { Directory } from '@/stores/files'
 
 export interface Template {
   inputs: {
-    id: string
-    name: string
-    type: string
-  }[]
+    [key: string]: {
+      name: string
+      type: string
+    }
+  }
   outputs: {
-    id: string
-    name: string
-    type: string
-  }[]
-  params: {
-    id: string
-    name: string
-    component: { type: string; [key: string]: any }
-  }[]
+    [key: string]: {
+      name: string
+      type: string
+    }
+  }
+  values: {
+    [key: string]: {
+      name: string
+      component: { type: string; [key: string]: any }
+    }
+  }
+}
+
+interface NodeSchema {
+  id: number
+  type: string
+  values: { [key: string]: any }
+  position: { x: number; y: number }
+}
+
+interface EdgeSchema {
+  id: string
+  source: number
+  sourceHandle: string
+  target: number
+  targetHandle: string
+}
+
+function nodeToVueFlow(node: NodeSchema): Node {
+  return {
+    id: `${node.id}`,
+    type: 'node',
+    position: node.position,
+    data: node
+  }
+}
+
+function edgeToVueFlow(edge: EdgeSchema): Edge {
+  return {
+    id: edge.id,
+    source: `${edge.source}`,
+    sourceHandle: edge.sourceHandle,
+    target: `${edge.target}`,
+    targetHandle: edge.targetHandle
+  }
 }
 
 export const useGraphStore = defineStore('graph', () => {
@@ -36,17 +73,13 @@ export const useGraphStore = defineStore('graph', () => {
   const edges: Ref<Edge[]> = ref([])
   const version = ref(0)
 
-  const nodeMap = new Map<string, Node>()
+  const nodeMap = new Map<number, Node>()
   const edgeMap = new Map<string, Edge>()
 
   function startListening() {
     webSocketHandler.send('streams', { action: 'subscribe', streams: ['graph'] })
 
     fetchGraph()
-  }
-
-  function stopListening() {
-    webSocketHandler.send('streams', { action: 'unsubscribe', streams: ['graph'] })
   }
 
   async function fetchGraph() {
@@ -67,20 +100,19 @@ export const useGraphStore = defineStore('graph', () => {
 
     version.value = version_
     templates.value = templates_
-    nodes.value = nodes_
-    edges.value = edges_
-
-    console.log(templates_)
 
     nodeMap.clear()
     for (const node of nodes_) {
-      nodeMap.set(node.id, node)
+      nodeMap.set(node.id, nodeToVueFlow(node))
     }
 
     edgeMap.clear()
     for (const edge of edges_) {
-      edgeMap.set(edge.id, edge)
+      edgeMap.set(edge.id, edgeToVueFlow(edge))
     }
+
+    nodes.value = Array.from(nodeMap.values())
+    edges.value = Array.from(edgeMap.values())
   }
 
   webSocketHandler.addEventListener('message', (event) => {
@@ -91,19 +123,16 @@ export const useGraphStore = defineStore('graph', () => {
     const data = msg.data as {
       version: number
       action: string
-      id?: string
-      node?: Node
-      edge?: Edge
+      id?: string | number
+      node?: NodeSchema
+      edge?: EdgeSchema
     }
-
-    console.log(data)
 
     if (data.version <= version.value) return
     else if (data.version > version.value + 1) {
       fetchGraph()
       return
     }
-
     version.value++
 
     switch (data.action) {
@@ -112,34 +141,38 @@ export const useGraphStore = defineStore('graph', () => {
       case 'create_node':
         if (!data.node) throw new Error(`Required value 'node' not received`)
 
-        nodeMap.set(data.node.id, data.node)
+        nodeMap.set(data.node.id, nodeToVueFlow(data.node))
         break
       case 'delete_node':
         if (!data.id) throw new Error(`Required value 'id' not received`)
+        if (typeof data.id === 'string') throw new Error(`'id' is of type 'string'`)
 
         nodeMap.delete(data.id)
         break
       case 'update_node':
         if (!data.node) throw new Error(`Required value 'node' not received`)
 
-        const node = nodeMap.get(data.node.id)
+        const oldNode = nodeMap.get(data.node.id)
 
-        if (!node) {
+        if (!oldNode) {
           fetchGraph()
           throw new Error(`Node '${data.node.id}' does not exist, resyncing graph...`)
         }
 
-        if (data.node.data) node.data = { ...node.data, ...data.node.data }
-        if (data.node.position) node.position = data.node.position
+        const newNode = nodeToVueFlow(data.node)
+
+        if (newNode.data) oldNode.data = { ...oldNode.data, ...newNode.data }
+        if (newNode.position) oldNode.position = newNode.position
 
         break
       case 'create_edge':
         if (!data.edge) throw new Error(`Required value 'edge' not received`)
 
-        edgeMap.set(data.edge.id, data.edge)
+        edgeMap.set(data.edge.id, edgeToVueFlow(data.edge))
         break
       case 'delete_edge':
         if (!data.id) throw new Error(`Required value 'id' not received`)
+        if (typeof data.id === 'number') throw new Error(`'id' is of type 'number'`)
 
         edgeMap.delete(data.id)
         break
@@ -147,8 +180,8 @@ export const useGraphStore = defineStore('graph', () => {
         throw new Error(`Unrecognized action '${data.action}''`)
     }
 
-    if (data.action.includes('node')) nodes.value = Array.from(nodeMap.values())
-    else if (data.action.includes('edge')) edges.value = Array.from(edgeMap.values())
+    nodes.value = Array.from(nodeMap.values())
+    edges.value = Array.from(edgeMap.values())
   })
 
   if (webSocketHandler.active) startListening()
@@ -156,54 +189,91 @@ export const useGraphStore = defineStore('graph', () => {
   webSocketHandler.addEventListener('open', startListening)
 
   function connectionValid(connection: Connection) {
-    let sourceHandleType = ''
+    const source = nodeMap.get(parseInt(connection.source))
+    const target = nodeMap.get(parseInt(connection.target))
 
-    for (const output of templates.value[nodeMap.get(connection.source)?.data.label].outputs) {
-      if (output.id === connection.sourceHandle) {
-        sourceHandleType = output.type
-        break
-      }
-    }
+    if (!source) throw new Error(`Invalid source node '${connection.source}'`)
+    if (!target) throw new Error(`Invalid target node '${connection.target}'`)
 
-    for (const input of templates.value[nodeMap.get(connection.target)?.data.label].inputs)
-      if (input.id === connection.targetHandle) return input.type === sourceHandleType
+    if (!connection.sourceHandle) throw new Error(`Connection requires 'sourceHandle'`)
+    if (!connection.targetHandle) throw new Error(`Connection requires 'targetHandle'`)
+
+    const sourceType =
+      templates.value[source.data.type].values[connection.sourceHandle].component.type
+
+    const targetType =
+      templates.value[target.data.type].values[connection.targetHandle].component.type
+
+    return sourceType === targetType
   }
 
-  async function addNode(type: string, position?: { x: number; y: number }) {
-    const params: { [key: string]: any } = {}
+  async function addNode(type: string, position: { x: number; y: number }) {
+    const values: { [key: string]: any } = {}
 
-    for (const param of templates.value[type].params) {
-      if (param.component.type === 'FileDropdown') {
+    for (const [k, v] of Object.entries(templates.value[type].values)) {
+      if (v.component.type === 'FileDropdown') {
         function recurse(subStructure: Directory): string[] {
-          let [k, v]: [string | null, Directory | null] = [null, null]
-          for ([k, v] of Object.entries(subStructure)) {
-            if (!v) return [k]
-          }
+          let [dir, file]: [string | null, Directory | null] = [null, null]
+          for ([dir, file] of Object.entries(subStructure)) if (!file) return [dir]
 
-          if (!k || !v) return ['']
+          if (!dir || !file) return ['']
 
-          return [k, ...recurse(v)]
+          return [dir, ...recurse(file)]
         }
 
-        params[param.id] = recurse(filesStore.getSubStructure(param.component.directory))
+        values[k] = recurse(filesStore.getSubStructure(v.component.directory))
       } else {
-        params[param.id] = param.component.default
+        values[k] = v.component.default
       }
     }
 
-    console.log(params)
+    const node: NodeSchema = {
+      id: version.value,
+      type: type,
+      values: values,
+      position: position
+    }
+
+    nodeMap.set(version.value - 1, nodeToVueFlow(node))
+
+    version.value++
+    nodes.value = Array.from(nodeMap.values())
 
     await webSocketHandler.send('graph', {
-      version: version.value,
+      version: version.value - 1,
       action: 'create_node',
-      id: version.value,
-      node: {
-        type: type,
-        params: params,
-        pos: position
-      }
+      id: version.value - 1,
+      node: node
     })
   }
 
-  return { nodes, edges, version, templates, connectionValid, addNode }
+  async function removeNode(id: number) {
+    if (!nodeMap.has(id)) throw new Error(`Invalid node ID '${id}'`)
+
+    version.value++
+    nodeMap.delete(id)
+
+    await webSocketHandler.send('graph', {
+      version: version.value - 1,
+      action: 'delete_node',
+      id: id
+    })
+  }
+
+  async function updateNode(
+    id: number,
+    values?: { [key: string]: any },
+    position?: { x: number; y: number }
+  ) {
+    const node = nodeMap.get(id)
+
+    if (!node) throw new Error(`Invalid node ID '${id}'`)
+
+    version.value++
+
+    if (values) node.data.values = { ...node.data.values, ...values }
+    if (position) node.position = position
+  }
+
+  return { nodes, edges, version, templates, connectionValid, addNode, removeNode, updateNode }
 })
