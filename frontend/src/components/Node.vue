@@ -6,12 +6,6 @@ import Checkbox from '@/components/NodeCheckbox.vue'
 import FileDropdown from '@/components/NodeFileDropdown.vue'
 import { useGraphStore } from '@/stores/graph'
 
-interface Connection {
-  id: string
-  name: string
-  type: string
-}
-
 const props = defineProps<{
   selected: boolean
   data: {

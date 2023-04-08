@@ -51,7 +51,7 @@ function nodeToVueFlow(node: NodeSchema): Node {
     id: `${node.id}`,
     type: 'node',
     position: node.position,
-    data: node
+    data: { type: node.type, values: node.values }
   }
 }
 
@@ -72,9 +72,6 @@ export const useGraphStore = defineStore('graph', () => {
   const nodes: Ref<Node[]> = ref([])
   const edges: Ref<Edge[]> = ref([])
   const version = ref(0)
-
-  const nodeMap = new Map<number, Node>()
-  const edgeMap = new Map<string, Edge>()
 
   function startListening() {
     webSocketHandler.send('streams', { action: 'subscribe', streams: ['graph'] })
@@ -101,18 +98,8 @@ export const useGraphStore = defineStore('graph', () => {
     version.value = version_
     templates.value = templates_
 
-    nodeMap.clear()
-    for (const node of nodes_) {
-      nodeMap.set(node.id, nodeToVueFlow(node))
-    }
-
-    edgeMap.clear()
-    for (const edge of edges_) {
-      edgeMap.set(edge.id, edgeToVueFlow(edge))
-    }
-
-    nodes.value = Array.from(nodeMap.values())
-    edges.value = Array.from(edgeMap.values())
+    nodes.value = nodes_.map(nodeToVueFlow)
+    edges.value = edges_.map(edgeToVueFlow)
   }
 
   webSocketHandler.addEventListener('message', (event) => {
@@ -141,47 +128,62 @@ export const useGraphStore = defineStore('graph', () => {
       case 'create_node':
         if (!data.node) throw new Error(`Required value 'node' not received`)
 
-        nodeMap.set(data.node.id, nodeToVueFlow(data.node))
+        nodes.value.push(nodeToVueFlow(data.node))
         break
       case 'delete_node':
         if (!data.id) throw new Error(`Required value 'id' not received`)
         if (typeof data.id === 'string') throw new Error(`'id' is of type 'string'`)
 
-        nodeMap.delete(data.id)
+        let idx = nodes.value.findIndex((node) => node.id === `${data.id}`)
+
+        if (idx > -1) nodes.value.splice(idx, 1)
+        else throw new Error(`Invalid node ID ${data.id}`)
+
         break
-      case 'update_node':
+      case 'update_position_node':
         if (!data.node) throw new Error(`Required value 'node' not received`)
 
-        const oldNode = nodeMap.get(data.node.id)
+        let node = nodes.value.find((node) => node.id === `${data.node!.id}`)
 
-        if (!oldNode) {
+        if (!node) {
           fetchGraph()
           throw new Error(`Node '${data.node.id}' does not exist, resyncing graph...`)
         }
 
-        const newNode = nodeToVueFlow(data.node)
-
-        if (newNode.data) oldNode.data = { ...oldNode.data, ...newNode.data }
-        if (newNode.position) oldNode.position = newNode.position
+        node.position = data.node.position
 
         break
+      case 'update_values_node':
+        if (!data.node) throw new Error(`Required value 'node' not received`)
+
+        node = nodes.value.find((node) => node.id === `${data.node!.id}`)
+
+        if (!node) {
+          fetchGraph()
+          throw new Error(`Node '${data.node.id}' does not exist, resyncing graph...`)
+        }
+
+        node.data.values = { ...node.data.values, ...data.node.values }
+
       case 'create_edge':
         if (!data.edge) throw new Error(`Required value 'edge' not received`)
 
-        edgeMap.set(data.edge.id, edgeToVueFlow(data.edge))
+        edges.value.push(edgeToVueFlow(data.edge))
+
         break
       case 'delete_edge':
         if (!data.id) throw new Error(`Required value 'id' not received`)
         if (typeof data.id === 'number') throw new Error(`'id' is of type 'number'`)
 
-        edgeMap.delete(data.id)
+        idx = edges.value.findIndex((edge) => edge.id === data.id)
+
+        if (idx > -1) edges.value.splice(idx, 1)
+        else throw new Error(`Invalid edge ID ${data.id}`)
+
         break
       default:
         throw new Error(`Unrecognized action '${data.action}''`)
     }
-
-    nodes.value = Array.from(nodeMap.values())
-    edges.value = Array.from(edgeMap.values())
   })
 
   if (webSocketHandler.active) startListening()
@@ -189,8 +191,8 @@ export const useGraphStore = defineStore('graph', () => {
   webSocketHandler.addEventListener('open', startListening)
 
   function connectionValid(connection: Connection) {
-    const source = nodeMap.get(parseInt(connection.source))
-    const target = nodeMap.get(parseInt(connection.target))
+    const source = nodes.value.find((node) => node.id === connection.source)
+    const target = nodes.value.find((node) => node.id === connection.target)
 
     if (!source) throw new Error(`Invalid source node '${connection.source}'`)
     if (!target) throw new Error(`Invalid target node '${connection.target}'`)
@@ -234,10 +236,9 @@ export const useGraphStore = defineStore('graph', () => {
       position: position
     }
 
-    nodeMap.set(version.value, nodeToVueFlow(node))
+    nodes.value.push(nodeToVueFlow(node))
 
     version.value++
-    nodes.value = Array.from(nodeMap.values())
 
     await webSocketHandler.send('graph', {
       version: version.value - 1,
@@ -248,10 +249,12 @@ export const useGraphStore = defineStore('graph', () => {
   }
 
   async function removeNode(id: number) {
-    if (!nodeMap.has(id)) throw new Error(`Invalid node ID '${id}'`)
+    let idx = nodes.value.findIndex((node) => node.id === `${id}`)
+
+    if (idx > -1) nodes.value.splice(idx, 1)
+    else throw new Error(`Invalid node ID ${id}`)
 
     version.value++
-    nodeMap.delete(id)
 
     await webSocketHandler.send('graph', {
       version: version.value - 1,
@@ -260,20 +263,53 @@ export const useGraphStore = defineStore('graph', () => {
     })
   }
 
-  async function updateNode(
-    id: number,
-    values?: { [key: string]: any },
-    position?: { x: number; y: number }
-  ) {
-    const node = nodeMap.get(id)
+  async function updatePositionNode(id: number, position: { x: number; y: number }) {
+    const node = nodes.value.find((node) => node.id === `${id}`)
 
     if (!node) throw new Error(`Invalid node ID '${id}'`)
 
     version.value++
 
-    if (values) node.data.values = { ...node.data.values, ...values }
-    if (position) node.position = position
+    node.position = position
+
+    await webSocketHandler.send('graph', {
+      version: version.value - 1,
+      action: 'update_position_node',
+      node: {
+        id: id,
+        position: position
+      }
+    })
   }
 
-  return { nodes, edges, version, templates, connectionValid, addNode, removeNode, updateNode }
+  async function updateValuesNode(id: number, values: { [key: string]: any }) {
+    const node = nodes.value.find((node) => node.id === `${id}`)
+
+    if (!node) throw new Error(`Invalid node ID '${id}'`)
+
+    version.value++
+
+    node.data.values = { ...node.data.values, ...values }
+
+    await webSocketHandler.send('graph', {
+      version: version.value - 1,
+      action: 'update_position_node',
+      node: {
+        id: id,
+        values: values
+      }
+    })
+  }
+
+  return {
+    nodes,
+    edges,
+    version,
+    templates,
+    connectionValid,
+    addNode,
+    removeNode,
+    updatePositionNode,
+    updateValuesNode
+  }
 })

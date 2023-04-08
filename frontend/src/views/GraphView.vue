@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { markRaw, watch } from 'vue'
+import { markRaw } from 'vue'
 import type { Component } from 'vue'
-import { storeToRefs } from 'pinia'
 
-import { VueFlow, useVueFlow, type NodeChange } from '@vue-flow/core'
+import { VueFlow, useVueFlow, ConnectionMode } from '@vue-flow/core'
+import type { NodeChange } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 
@@ -13,7 +13,7 @@ import { useGraphStore } from '@/stores/graph'
 
 const store = useGraphStore()
 
-const { vueFlowRef, project } = useVueFlow()
+const { vueFlowRef, applyNodeChanges, project } = useVueFlow()
 
 function onDrop(evt: DragEvent) {
   const type = evt.dataTransfer?.getData('application/vueflow')
@@ -33,6 +33,8 @@ function onNodesChange(changes: NodeChange[]) {
       case 'remove':
         store.removeNode(parseInt(change.id))
         break
+      case 'position':
+        if (change.position) store.updatePositionNode(parseInt(change.id), change.position)
 
       default:
         break
@@ -72,6 +74,7 @@ function onNodesChange(changes: NodeChange[]) {
         @drop="onDrop"
         @dragover.prevent
         @dragenter.prevent
+        :connection-mode="ConnectionMode.Strict"
         class="h-100 rounded-lg"
       >
         <Background pattern-color="#4B5563" :gap="24" :size="1.6" class="bg-gray-900" />

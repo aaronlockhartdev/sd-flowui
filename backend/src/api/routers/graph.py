@@ -27,19 +27,16 @@ class ComputeGraph(nx.DiGraph):
 
             match data["action"]:
                 case "create_node":
-                    await self.add_node(
-                        id=data["id"],
-                        type=data["node"]["type"],
-                        values=data["node"]["values"],
-                        position=data["node"]["position"],
-                    )
+                    await self.add_node(**utils.NodeSchema(**data["node"]).dict())
                 case "delete_node":
                     await self.remove_node(id=data["id"])
-                case "update_node":
-                    await self.update_node(
-                        id=data["id"],
-                        values=data["node"]["values"],
-                        position=data["node"]["position"],
+                case "update_position_node":
+                    await self.update_position_node(
+                        data["node"]["id"], data["node"]["position"]
+                    )
+                case "update_values_node":
+                    await self.update_values_node(
+                        data["node"]["id"], data["node"]["values"]
                     )
 
         super().__init__(*args, **kwargs)
@@ -85,21 +82,23 @@ class ComputeGraph(nx.DiGraph):
         return {"action": "create_node", "node": self._node_to_dict(id).dict()}
 
     @_broadcast_update
-    def update_node(
-        self, id: int, values: dict | None = None, position: tuple[int] | None = None
-    ) -> dict:
+    def update_position_node(self, id: int, position: dict[str, int]) -> dict:
         obj: nodes.Node = self.nodes[id]["obj"]
 
-        msg = {"action": "update_node", "node": {"id": id}}
+        obj.position = position
 
-        if values:
-            obj.values = values
-            msg["node"].update({"data": {"values": values}})
-        if position:
-            obj.position = position
-            msg["node"].update({"position": {"x": position[0], "y": position[1]}})
+        return {
+            "action": "update_position_node",
+            "node": {"id": id, "position": position},
+        }
 
-        return msg
+    @_broadcast_update
+    def update_values_node(self, id: int, values: dict[str, Any]) -> dict:
+        obj: nodes.Node = self.nodes[id]["obj"]
+
+        obj.values = values
+
+        return {"action": "update_values_node", "node": {"id": id, "values": values}}
 
     @_broadcast_update
     def remove_node(self, id: int) -> dict:
