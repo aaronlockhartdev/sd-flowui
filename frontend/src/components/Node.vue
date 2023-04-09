@@ -4,6 +4,8 @@ import { Handle, Position } from '@vue-flow/core'
 
 import Checkbox from '@/components/NodeCheckbox.vue'
 import FileDropdown from '@/components/NodeFileDropdown.vue'
+import TextBox from '@/components/NodeTextBox.vue'
+
 import { useGraphStore } from '@/stores/graph'
 
 const props = defineProps<{
@@ -37,6 +39,19 @@ watch(values, (val) => emits('updateNode', val))
       </h5>
       <hr class="my-1 h-px border-0 bg-gray-700" />
       <div class="flex items-stretch">
+        <ul class="left-0 mr-2 flex flex-col">
+          <li
+            v-for="[k, v] in Object.entries(store.templates[props.data.type].inputs)"
+            class="my-1 flex items-center"
+          >
+            <Handle
+              :id="k"
+              type="target"
+              class="static h-1 w-1 translate-x-0 rounded-full bg-gray-500"
+            />
+            <p class="ml-1.5 text-xs text-gray-300">{{ v.name }}</p>
+          </li>
+        </ul>
         <ul class="flex min-w-0 flex-col">
           <li v-for="[k, v] in Object.entries(store.templates[props.data.type].values)">
             <Checkbox
@@ -53,6 +68,13 @@ watch(values, (val) => emits('updateNode', val))
               :component="v.component as any"
               @update-val="(val) => (values[k] = val)"
             />
+            <TextBox
+              v-else-if="v.component.type === 'TextBox'"
+              :name="v.name"
+              :value="values[k]"
+              :component="v.component as any"
+              @update-val="(val) => (values[k] = val)"
+            />
           </li>
         </ul>
         <ul class="right-0 ml-1 flex flex-col">
@@ -60,8 +82,12 @@ watch(values, (val) => emits('updateNode', val))
             v-for="[k, v] in Object.entries(store.templates[props.data.type].outputs)"
             class="my-1 flex items-center justify-end"
           >
-            <p class="mr-2 text-right text-xs font-normal text-gray-300">{{ v.name }}</p>
-            <Handle :id="k" type="source" class="static h-1 w-1 rounded-full bg-gray-500" />
+            <p class="mr-1.5 text-right text-xs text-gray-300">{{ v.name }}</p>
+            <Handle
+              :id="k"
+              type="source"
+              class="static h-1 w-1 translate-x-0 rounded-full bg-gray-500"
+            />
           </li>
         </ul>
       </div>

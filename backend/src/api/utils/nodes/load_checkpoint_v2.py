@@ -15,11 +15,11 @@ from diffusers.pipelines.stable_diffusion.convert_from_ckpt import (
     convert_ldm_clip_checkpoint,
 )
 
+import api.utils as utils
 from .node import Node, NodeTemplate
-from .components import FileDropdown, Checkbox
 
 
-class LoadCheckpoint(Node):
+class LoadCheckpointV2(Node):
     _ckpt_path: list[str]
     _cfg_path: list[str]
     _upcast_att: bool
@@ -30,20 +30,20 @@ class LoadCheckpoint(Node):
         values={
             "ckpt_path": {
                 "name": "Checkpoint",
-                "component": FileDropdown(directory=["checkpoints"]),
+                "component": utils.FileDropdown(directory=["checkpoints"]),
             },
             "cfg_path": {
                 "name": "Config",
-                "component": FileDropdown(directory=["configs"]),
+                "component": utils.FileDropdown(directory=["configs"]),
             },
             "upcast_att": {
                 "name": "Upcast Attention",
-                "component": Checkbox(default=False),
+                "component": utils.Checkbox(default=True),
             },
-            "use_ema": {"name": "Use EMA", "component": Checkbox(default=True)},
+            "use_ema": {"name": "Use EMA", "component": utils.Checkbox(default=True)},
             "size_768": {
                 "name": "768 Model",
-                "component": Checkbox(default=True),
+                "component": utils.Checkbox(default=True),
             },
         },
         outputs={
@@ -58,7 +58,7 @@ class LoadCheckpoint(Node):
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
 
-        ckpt_path = os.path.oin(
+        ckpt_path = os.path.join(
             env["DATA_DIR"], "models", "checkpoints", *self._ckpt_path
         )
         if pathlib.Path(ckpt_path).suffix == "safetensors":

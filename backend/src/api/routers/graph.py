@@ -27,7 +27,7 @@ class ComputeGraph(nx.DiGraph):
 
             match data["action"]:
                 case "create_node":
-                    await self.add_node(**utils.NodeSchema(**data["node"]).dict())
+                    await self.add_node(**data["node"])
                 case "delete_node":
                     await self.remove_node(id=data["id"])
                 case "update_position_node":

@@ -3,7 +3,7 @@ import { markRaw } from 'vue'
 import type { Component } from 'vue'
 
 import { VueFlow, useVueFlow, ConnectionMode } from '@vue-flow/core'
-import type { NodeChange } from '@vue-flow/core'
+import type { NodeChange, Connection } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 
@@ -13,7 +13,7 @@ import { useGraphStore } from '@/stores/graph'
 
 const store = useGraphStore()
 
-const { vueFlowRef, applyNodeChanges, project } = useVueFlow()
+const { vueFlowRef, project } = useVueFlow()
 
 function onDrop(evt: DragEvent) {
   const type = evt.dataTransfer?.getData('application/vueflow')
@@ -25,7 +25,17 @@ function onDrop(evt: DragEvent) {
   store.addNode(type, project({ x: evt.clientX - left - 100, y: evt.clientY - top }))
 }
 
-function onClick(evt: MouseEvent) {}
+function onClick(type: string) {
+  const { x, y, width, height } = vueFlowRef.value!.getBoundingClientRect()
+
+  console.log(vueFlowRef.value?.getBoundingClientRect())
+
+  const center = project({ x: x + 0.5 * width - 100, y: y + 0.5 * height - 200 })
+
+  console.log(center)
+
+  store.addNode(type, center)
+}
 
 function onNodesChange(changes: NodeChange[]) {
   for (const change of changes) {
@@ -35,21 +45,28 @@ function onNodesChange(changes: NodeChange[]) {
         break
       case 'position':
         if (change.position) store.updatePositionNode(parseInt(change.id), change.position)
-
-      default:
-        break
     }
   }
+}
+
+function onConnect(connection: Connection) {
+  if (store.connectionValid(connection))
+    store.addEdge(
+      parseInt(connection.source),
+      parseInt(connection.target),
+      connection.sourceHandle!,
+      connection.targetHandle!
+    )
 }
 </script>
 
 <template>
   <div class="wrapper">
-    <div class="flex h-[calc(100vh-3rem)] items-stretch bg-gray-900">
-      <ul class="left-0 flex h-full flex-col border-r-[2px] border-gray-900 bg-gray-800">
+    <div class="flex h-[calc(100vh-3rem)] flex-col items-stretch bg-gray-800">
+      <ul class="left-0 flex w-full border-b border-gray-700 bg-gray-800 py-1">
         <li v-for="k in Object.keys(store.templates)" class="m-2">
           <button
-            @click="onClick"
+            @click="(_) => onClick(k)"
             :draggable="true"
             @dragstart="(evt: DragEvent) => {
               if (!evt.dataTransfer) return 
@@ -58,9 +75,9 @@ function onNodesChange(changes: NodeChange[]) {
               evt.dataTransfer.effectAllowed = 'move'
 
               evt.dataTransfer.setData('application/vueflow', k)}"
-            class="rounded-lg px-2 py-1"
+            class="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1"
           >
-            <h5 class="px-2 text-sm font-medium text-white">
+            <h5 class="px-2 text-sm font-medium text-gray-300">
               {{ k }}
             </h5>
           </button>
@@ -71,11 +88,12 @@ function onNodesChange(changes: NodeChange[]) {
         v-model:edges="store.edges"
         :node-types="{ node: markRaw(<Component>Node) }"
         @nodes-change="onNodesChange"
+        @connect="onConnect"
         @drop="onDrop"
         @dragover.prevent
         @dragenter.prevent
         :connection-mode="ConnectionMode.Strict"
-        class="h-100 rounded-lg"
+        class="h-100"
       >
         <Background pattern-color="#4B5563" :gap="24" :size="1.6" class="bg-gray-900" />
         <MiniMap

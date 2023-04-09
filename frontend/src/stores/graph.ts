@@ -46,25 +46,6 @@ interface EdgeSchema {
   targetHandle: string
 }
 
-function nodeToVueFlow(node: NodeSchema): Node {
-  return {
-    id: `${node.id}`,
-    type: 'node',
-    position: node.position,
-    data: { type: node.type, values: node.values }
-  }
-}
-
-function edgeToVueFlow(edge: EdgeSchema): Edge {
-  return {
-    id: edge.id,
-    source: `${edge.source}`,
-    sourceHandle: edge.sourceHandle,
-    target: `${edge.target}`,
-    targetHandle: edge.targetHandle
-  }
-}
-
 export const useGraphStore = defineStore('graph', () => {
   const filesStore = useFilesStore()
 
@@ -100,6 +81,27 @@ export const useGraphStore = defineStore('graph', () => {
 
     nodes.value = nodes_.map(nodeToVueFlow)
     edges.value = edges_.map(edgeToVueFlow)
+  }
+
+  function nodeToVueFlow(node: NodeSchema): Node {
+    return {
+      id: `${node.id}`,
+      type: 'node',
+      position: node.position,
+      data: { type: node.type, values: node.values },
+      isValidTargetPos: connectionValid,
+      isValidSourcePos: connectionValid
+    }
+  }
+
+  function edgeToVueFlow(edge: EdgeSchema): Edge {
+    return {
+      id: edge.id,
+      source: `${edge.source}`,
+      sourceHandle: edge.sourceHandle,
+      target: `${edge.target}`,
+      targetHandle: edge.targetHandle
+    }
   }
 
   webSocketHandler.addEventListener('message', (event) => {
@@ -189,25 +191,6 @@ export const useGraphStore = defineStore('graph', () => {
   if (webSocketHandler.active) startListening()
 
   webSocketHandler.addEventListener('open', startListening)
-
-  function connectionValid(connection: Connection) {
-    const source = nodes.value.find((node) => node.id === connection.source)
-    const target = nodes.value.find((node) => node.id === connection.target)
-
-    if (!source) throw new Error(`Invalid source node '${connection.source}'`)
-    if (!target) throw new Error(`Invalid target node '${connection.target}'`)
-
-    if (!connection.sourceHandle) throw new Error(`Connection requires 'sourceHandle'`)
-    if (!connection.targetHandle) throw new Error(`Connection requires 'targetHandle'`)
-
-    const sourceType =
-      templates.value[source.data.type].values[connection.sourceHandle].component.type
-
-    const targetType =
-      templates.value[target.data.type].values[connection.targetHandle].component.type
-
-    return sourceType === targetType
-  }
 
   async function addNode(type: string, position: { x: number; y: number }) {
     const values: { [key: string]: any } = {}
@@ -301,6 +284,48 @@ export const useGraphStore = defineStore('graph', () => {
     })
   }
 
+  async function addEdge(
+    source: number,
+    target: number,
+    sourceHandle: string,
+    targetHandle: string
+  ) {
+    const edge: EdgeSchema = {
+      id: `e${source}${sourceHandle}-${target}${targetHandle}`,
+      source: source,
+      target: target,
+      sourceHandle: sourceHandle,
+      targetHandle: targetHandle
+    }
+
+    version.value++
+
+    edges.value.push(edgeToVueFlow(edge))
+
+    await webSocketHandler.send('graph', {
+      version: version.value - 1,
+      action: 'create_edge',
+      edge: edge
+    })
+  }
+
+  function connectionValid(connection: Connection) {
+    const source = nodes.value.find((node) => node.id === connection.source)
+    const target = nodes.value.find((node) => node.id === connection.target)
+
+    if (!source) throw new Error(`Invalid source node '${connection.source}'`)
+    if (!target) throw new Error(`Invalid target node '${connection.target}'`)
+
+    if (!connection.sourceHandle) throw new Error(`Connection requires 'sourceHandle'`)
+    if (!connection.targetHandle) throw new Error(`Connection requires 'targetHandle'`)
+
+    const sourceType = templates.value[source.data.type].outputs[connection.sourceHandle].type
+
+    const targetType = templates.value[target.data.type].inputs[connection.targetHandle].type
+
+    return sourceType === targetType
+  }
+
   return {
     nodes,
     edges,
@@ -310,6 +335,7 @@ export const useGraphStore = defineStore('graph', () => {
     addNode,
     removeNode,
     updatePositionNode,
-    updateValuesNode
+    updateValuesNode,
+    addEdge
   }
 })

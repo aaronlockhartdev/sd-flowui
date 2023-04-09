@@ -3,7 +3,11 @@ from os import environ as env
 
 from pydantic import BaseModel, Field, validator
 
-import api.utils as utils
+
+class Checkbox(BaseModel):
+    type = Field("Checkbox", const=True)
+
+    default: bool
 
 
 class FileDropdown(BaseModel):
@@ -18,3 +22,20 @@ class FileDropdown(BaseModel):
             os.makedirs(path, exist_ok=True)
 
         return dir
+
+
+class FloatSlider(BaseModel):
+    type = Field("FloatSlider", const=True)
+
+    default: float
+    minimum: float
+    maximum: float
+    step: float
+
+
+class TextBox(BaseModel):
+    type = Field("TextBox", const=True)
+
+    default: str
+    placeholder: str
+    maxlen: int

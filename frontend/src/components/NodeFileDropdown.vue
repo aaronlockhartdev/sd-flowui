@@ -32,7 +32,7 @@ const expanded = ref(false)
 <template>
   <div class="wrapper">
     <div class="mx-2 my-1 flex min-w-[11rem] items-center">
-      <h1 class="pr-2 text-xs font-normal text-gray-300">{{ props.name }}</h1>
+      <h1 class="pr-2 text-xs text-gray-300">{{ props.name }}</h1>
 
       <button
         @click="() => (expanded = !expanded)"
