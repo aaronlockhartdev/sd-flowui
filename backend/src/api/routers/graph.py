@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import networkx as nx
+import regex as re
 
 from fastapi import APIRouter, WebSocket
-from pydantic import BaseModel, validator
 from typing import Any
 
 import api.services as services
 import api.utils as utils
-import api.utils.nodes as nodes
+import api.compute.graph.node as node
 
 
 class ComputeGraph(nx.DiGraph):
@@ -38,6 +38,10 @@ class ComputeGraph(nx.DiGraph):
                     await self.update_values_node(
                         data["node"]["id"], data["node"]["values"]
                     )
+                case "create_edge":
+                    await self.add_edge(**data["edge"])
+                case "delete_edge":
+                    await self.remove_edge(data["id"])
 
         super().__init__(*args, **kwargs)
 
@@ -75,7 +79,7 @@ class ComputeGraph(nx.DiGraph):
 
     @_broadcast_update
     def add_node(self, id: int, type: str, values: dict, position: dict) -> dict:
-        obj = nodes.constructors[type](values, position)
+        obj = node.nodes[type](values, position)
 
         super().add_node(id, obj=obj)
 
@@ -83,7 +87,7 @@ class ComputeGraph(nx.DiGraph):
 
     @_broadcast_update
     def update_position_node(self, id: int, position: dict[str, int]) -> dict:
-        obj: nodes.Node = self.nodes[id]["obj"]
+        obj: node.Node = self.nodes[id]["obj"]
 
         obj.position = position
 
@@ -94,7 +98,7 @@ class ComputeGraph(nx.DiGraph):
 
     @_broadcast_update
     def update_values_node(self, id: int, values: dict[str, Any]) -> dict:
-        obj: nodes.Node = self.nodes[id]["obj"]
+        obj: node.Node = self.nodes[id]["obj"]
 
         obj.values = values
 
@@ -107,15 +111,38 @@ class ComputeGraph(nx.DiGraph):
         return {"action": "delete_node", "id": id}
 
     @_broadcast_update
-    def add_edge(self, u: int, v: int, map_: dict) -> dict:
-        pass
+    def add_edge(
+        self, id: str, source: int, target: int, sourceHandle: str, targetHandle: str
+    ) -> dict:
+        if (source, target) in self.edges:
+            self.edges[source, target]["map"].append((sourceHandle, targetHandle))
+        else:
+            super().add_edge(source, target, map=[(sourceHandle, targetHandle)])
+
+        return {
+            "action": "create_edge",
+            "edge": {
+                "id": id,
+                "source": source,
+                "target": target,
+                "sourceHandle": sourceHandle,
+                "targetHandle": targetHandle,
+            },
+        }
 
     @_broadcast_update
-    def remove_edge(self, u: int, v: int) -> dict:
-        pass
+    def remove_edge(self, id: str) -> dict:
+        groups = re.findall("e([1-9]\d*)(\w+)-([1-9]\d*)(\w+)", id)
+        u, uh, v, vh = groups
+
+        self.edges[u, v]["map"].remove((uh, vh))
+        if not self.edges[u, v]["map"]:
+            super().remove_edge(u, v)
+
+        return {"action": "remove_edge", "id": id}
 
     def _node_to_dict(self, id: int) -> utils.NodeSchema:
-        obj: nodes.Node = self.nodes[id]["obj"]
+        obj: node.Node = self.nodes[id]["obj"]
 
         return utils.NodeSchema(
             id=id, type=type(obj).__name__, values=obj.values, position=obj.position
@@ -132,7 +159,7 @@ class ComputeGraph(nx.DiGraph):
                 target=v,
                 targetHandle=vh,
             )
-            for uh, vh in map_.items()
+            for uh, vh in map_
         ]
 
 
@@ -148,5 +175,5 @@ async def read_graph():
         "version": compute_graph.version,
         "nodes": list(compute_graph.nodes_computed),
         "edges": list(compute_graph.edges_computed),
-        "templates": {k: v.template_computed for k, v in nodes.constructors.items()},
+        "templates": {k: v.template_computed for k, v in node.nodes.items()},
     }

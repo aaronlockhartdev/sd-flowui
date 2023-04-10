@@ -16,10 +16,10 @@ from diffusers.pipelines.stable_diffusion.convert_from_ckpt import (
 )
 
 import api.utils as utils
-from .node import Node, NodeTemplate
+from api.compute.graph.node import Node, NodeTemplate
 
 
-class LoadCheckpointV2(Node):
+class LoadCheckpoint(Node):
     _ckpt_path: list[str]
     _cfg_path: list[str]
     _upcast_att: bool

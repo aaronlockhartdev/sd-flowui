@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { watch, ref } from 'vue'
-import { Handle, Position } from '@vue-flow/core'
+import { Handle } from '@vue-flow/core'
 
 import Checkbox from '@/components/NodeCheckbox.vue'
 import FileDropdown from '@/components/NodeFileDropdown.vue'

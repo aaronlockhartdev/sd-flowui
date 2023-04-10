@@ -1,6 +1,11 @@
-from pydantic import BaseModel, validator
+from __future__ import annotations
+
+from os import environ as env
+from pydantic import BaseModel
 
 import api.utils as utils
+
+nodes: dict[str, Node] = {}
 
 
 class Connection(BaseModel):
@@ -8,7 +13,7 @@ class Connection(BaseModel):
     type: type
 
 
-class Param(BaseModel):
+class Value(BaseModel):
     name: str
     component: BaseModel
 
@@ -16,10 +21,20 @@ class Param(BaseModel):
 class NodeTemplate(BaseModel):
     inputs: dict[str, Connection] = {}
     outputs: dict[str, Connection] = {}
-    values: dict[str, Param]
+    values: dict[str, Value]
 
 
-class Node:
+class NodeMeta(type):
+    def __new__(cls, name, bases, dct):
+        class_ = super().__new__(cls, name, bases, dct)
+
+        if bases:
+            nodes[name] = class_
+
+        return class_
+
+
+class Node(metaclass=NodeMeta):
     template: NodeTemplate
 
     def __init__(self, values, position):

@@ -21,10 +21,10 @@ watch(text, (val) => emits('updateVal', val))
 <template>
   <div class="wrapper">
     <div class="mx-2 my-1 w-[20rem]">
-      <label for="message" class="mb-1 block text-xs text-gray-300">{{ props.name }}</label>
       <textarea
+        id="message"
         rows="5"
-        class="block w-full rounded-lg border border-gray-600 bg-gray-700 p-1.5 text-xs text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 dark:focus:ring-blue-500"
+        class="block w-full resize-none rounded-lg border border-gray-600 bg-gray-700 p-1.5 text-xs text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500"
         :placeholder="props.component.placeholder"
         v-model="text"
       ></textarea>

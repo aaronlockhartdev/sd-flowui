@@ -1,4 +1,4 @@
-from .node import Node, NodeTemplate
+from api.compute.graph.node import Node, NodeTemplate
 
 import transformers
 

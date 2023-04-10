@@ -97,6 +97,7 @@ export const useGraphStore = defineStore('graph', () => {
   function edgeToVueFlow(edge: EdgeSchema): Edge {
     return {
       id: edge.id,
+      updatable: true,
       source: `${edge.source}`,
       sourceHandle: edge.sourceHandle,
       target: `${edge.target}`,
@@ -232,7 +233,7 @@ export const useGraphStore = defineStore('graph', () => {
   }
 
   async function removeNode(id: number) {
-    let idx = nodes.value.findIndex((node) => node.id === `${id}`)
+    const idx = nodes.value.findIndex((node) => node.id === `${id}`)
 
     if (idx > -1) nodes.value.splice(idx, 1)
     else throw new Error(`Invalid node ID ${id}`)
@@ -309,6 +310,21 @@ export const useGraphStore = defineStore('graph', () => {
     })
   }
 
+  async function removeEdge(id: string) {
+    const idx = edges.value.findIndex((edge) => edge.id === id)
+
+    if (idx > -1) edges.value.splice(idx, 1)
+    else throw new Error(`Invalid edge ID ${id}`)
+
+    version.value++
+
+    await webSocketHandler.send('graph', {
+      version: version.value - 1,
+      action: 'delete_edge',
+      id: id
+    })
+  }
+
   function connectionValid(connection: Connection) {
     const source = nodes.value.find((node) => node.id === connection.source)
     const target = nodes.value.find((node) => node.id === connection.target)
@@ -336,6 +352,7 @@ export const useGraphStore = defineStore('graph', () => {
     removeNode,
     updatePositionNode,
     updateValuesNode,
-    addEdge
+    addEdge,
+    removeEdge
   }
 })

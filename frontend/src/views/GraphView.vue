@@ -2,12 +2,13 @@
 import { markRaw } from 'vue'
 import type { Component } from 'vue'
 
-import { VueFlow, useVueFlow, ConnectionMode } from '@vue-flow/core'
-import type { NodeChange, Connection } from '@vue-flow/core'
+import { VueFlow, useVueFlow, ConnectionMode, type EdgeUpdateEvent } from '@vue-flow/core'
+import type { NodeChange, Connection, Edge } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 
 import Node from '@/components/Node.vue'
+import Edge_ from '@/components/Edge.vue'
 
 import { useGraphStore } from '@/stores/graph'
 
@@ -58,6 +59,17 @@ function onConnect(connection: Connection) {
       connection.targetHandle!
     )
 }
+
+function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
+  store.removeEdge(edge.id)
+  if (store.connectionValid(connection))
+    store.addEdge(
+      parseInt(connection.source),
+      parseInt(connection.target),
+      connection.sourceHandle!,
+      connection.targetHandle!
+    )
+}
 </script>
 
 <template>
@@ -87,7 +99,9 @@ function onConnect(connection: Connection) {
         v-model:nodes="store.nodes"
         v-model:edges="store.edges"
         :node-types="{ node: markRaw(<Component>Node) }"
+        :edge-types="{ edge: markRaw(<Component>Edge_)}"
         @nodes-change="onNodesChange"
+        @edge-update="onEdgeUpdate"
         @connect="onConnect"
         @drop="onDrop"
         @dragover.prevent
