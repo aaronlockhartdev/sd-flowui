@@ -13,7 +13,7 @@ class FileWatcher:
 
         self.dir_structure = self._read_dir(os.path.normpath(env["DATA_DIR"]))
 
-    async def watch(self):
+    async def __call__(self):
         async for _ in awatch(env["DATA_DIR"], stop_event=self._stop_event):
             self.dir_structure = self._read_dir(os.path.normpath(env["DATA_DIR"]))
             await websocket_handler.broadcast("files", self.dir_structure)

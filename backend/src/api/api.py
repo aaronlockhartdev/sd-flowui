@@ -6,12 +6,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
-import api.services as services
+from . import services
+from . import compute
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    asyncio.create_task(services.file_watcher.watch())
+    asyncio.create_task(services.file_watcher())
+    asyncio.create_task(compute.executor())
 
     yield
 

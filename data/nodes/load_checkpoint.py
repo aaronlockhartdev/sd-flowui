@@ -16,7 +16,7 @@ from diffusers.pipelines.stable_diffusion.convert_from_ckpt import (
 )
 
 import api.utils as utils
-from api.compute.graph.node import Node, NodeTemplate
+from api.compute.graph import Node, NodeTemplate, components
 
 
 class LoadCheckpoint(Node):
@@ -30,20 +30,23 @@ class LoadCheckpoint(Node):
         values={
             "ckpt_path": {
                 "name": "Checkpoint",
-                "component": utils.FileDropdown(directory=["checkpoints"]),
+                "component": components.FileDropdown(directory=["checkpoints"]),
             },
             "cfg_path": {
                 "name": "Config",
-                "component": utils.FileDropdown(directory=["configs"]),
+                "component": components.FileDropdown(directory=["configs"]),
             },
             "upcast_att": {
                 "name": "Upcast Attention",
-                "component": utils.Checkbox(default=True),
+                "component": components.Checkbox(default=True),
             },
-            "use_ema": {"name": "Use EMA", "component": utils.Checkbox(default=True)},
+            "use_ema": {
+                "name": "Use EMA",
+                "component": components.Checkbox(default=True),
+            },
             "size_768": {
                 "name": "768 Model",
-                "component": utils.Checkbox(default=True),
+                "component": components.Checkbox(default=True),
             },
         },
         outputs={

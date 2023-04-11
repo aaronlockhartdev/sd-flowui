@@ -1,4 +1,3 @@
-from inspect import signature
 from fastapi import WebSocket, WebSocketDisconnect
 import asyncio
 
@@ -23,15 +22,12 @@ class WebSocketHandler:
                 del self._active[websocket]
 
     async def listen(self, websocket: WebSocket):
-        await self.connect(websocket)
+        await websocket.accept()
         try:
             while True:
                 await self.receive(websocket)
         except WebSocketDisconnect:
             self.disconnect(websocket)
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self._active:

@@ -1,18 +1,17 @@
-from api.compute.graph.node import Node, NodeTemplate
-
 import transformers
+import torch
 
-import api.utils as utils
+from api.compute.graph import Node, NodeTemplate, components
 
 
 class CLIPEncode(Node):
     template = NodeTemplate(
         inputs={"clip": {"name": "CLIP", "type": transformers.CLIPTextModel}},
-        outputs={},
+        outputs={"embeddings": {"name": "Embeddings", "type": torch.FloatTensor}},
         values={
             "input_text": {
                 "name": "Text",
-                "component": utils.TextBox(
+                "component": components.TextBox(
                     default="", placeholder="Write your prompt", maxlen=150
                 ),
             }
