@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { markRaw } from 'vue'
+import { ref, markRaw } from 'vue'
 import type { Component } from 'vue'
 
-import { VueFlow, useVueFlow, ConnectionMode, type EdgeUpdateEvent } from '@vue-flow/core'
+import {
+  VueFlow,
+  useVueFlow,
+  ConnectionMode,
+  type EdgeUpdateEvent,
+  type EdgeChange
+} from '@vue-flow/core'
 import type { NodeChange, Connection, Edge } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
@@ -46,6 +52,15 @@ function onNodesChange(changes: NodeChange[]) {
         break
       case 'position':
         if (change.position) store.updatePositionNode(parseInt(change.id), change.position)
+    }
+  }
+}
+
+function onEdgesChange(changes: EdgeChange[]) {
+  for (const change of changes) {
+    switch (change.type) {
+      case 'remove':
+        store.removeEdge(change.id)
     }
   }
 }
@@ -101,11 +116,16 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
         :node-types="{ node: markRaw(<Component>Node) }"
         :edge-types="{ edge: markRaw(<Component>Edge_)}"
         @nodes-change="onNodesChange"
+        @edges-change="onEdgesChange"
         @edge-update="onEdgeUpdate"
         @connect="onConnect"
         @drop="onDrop"
         @dragover.prevent
         @dragenter.prevent
+        fit-view-on-init
+        zoom-on-pinch
+        pan-on-scroll
+        :min-zoom="0.2"
         :connection-mode="ConnectionMode.Strict"
         class="h-100"
       >
@@ -127,4 +147,12 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
 
 <style>
 @import '@vue-flow/core/dist/style.css';
+
+.vue-flow__handle-left {
+  transform: none;
+}
+
+.vue-flow__handle-right {
+  transform: none;
+}
 </style>

@@ -35,7 +35,12 @@ const expanded = ref(false)
       <h1 class="pr-2 text-xs text-gray-300">{{ props.name }}</h1>
 
       <button
-        @click="() => (expanded = !expanded)"
+        @click="
+          () => {
+            if (!expanded && Object.keys(struct).length) expanded = true
+            else expanded = false
+          }
+        "
         class="inline-flex min-w-0 items-center rounded-lg bg-blue-600 px-2 py-0.5 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-800"
         type="button"
       >

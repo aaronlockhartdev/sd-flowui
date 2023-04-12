@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { watch, ref } from 'vue'
-import { Handle } from '@vue-flow/core'
+import { Handle, Position } from '@vue-flow/core'
 
 import Checkbox from '@/components/NodeCheckbox.vue'
 import FileDropdown from '@/components/NodeFileDropdown.vue'
@@ -32,7 +32,7 @@ watch(values, (val) => emits('updateNode', val))
         'ring-blue-600': props.selected,
         'ring-2': props.selected
       }"
-      class="block min-w-[12rem] max-w-sm rounded-lg border border-gray-700 bg-gray-800 p-1 shadow"
+      class="block min-w-[12rem] max-w-lg rounded-lg border border-gray-700 bg-gray-800 p-1 shadow"
     >
       <h5 class="px-2 text-sm font-medium text-white">
         {{ props.data.type }}
@@ -47,7 +47,8 @@ watch(values, (val) => emits('updateNode', val))
             <Handle
               :id="k"
               type="target"
-              class="static h-1 w-1 translate-x-0 rounded-full bg-gray-500"
+              :position="Position.Left"
+              class="static h-1 w-1 rounded-full bg-gray-500"
             />
             <p class="ml-1.5 text-xs text-gray-300">{{ v.name }}</p>
           </li>
@@ -86,7 +87,8 @@ watch(values, (val) => emits('updateNode', val))
             <Handle
               :id="k"
               type="source"
-              class="static h-1 w-1 translate-x-0 rounded-full bg-gray-500"
+              :position="Position.Right"
+              class="static h-1 w-1 rounded-full bg-gray-500"
             />
           </li>
         </ul>

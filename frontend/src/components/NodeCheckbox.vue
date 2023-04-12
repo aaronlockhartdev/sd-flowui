@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch, ref } from 'vue'
+import { computed, watch, ref, onMounted } from 'vue'
 
 const props = defineProps<{
   name: string
@@ -15,18 +15,26 @@ const checked = ref(props.value)
 watch(checked, (val: boolean) => {
   emits('updateVal', val)
 })
+
+const input = ref()
+
+const inputId = computed(() => (input.value ? input.value.id : ''))
+
+watch(input, (val: HTMLInputElement) => {
+  console.log(val)
+})
 </script>
 
 <template>
   <div class="wrapper">
     <div class="mx-2 my-1 flex items-center">
       <input
-        id="checkbox"
+        ref="input"
         type="checkbox"
         class="h-3.5 w-3.5 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-2 focus:ring-blue-600 focus:ring-offset-gray-800"
         v-model="checked"
       />
-      <label for="checkbox" class="ml-2 p-0 text-xs font-normal text-gray-300">{{
+      <label :for="inputId" class="ml-2 p-0 text-xs font-normal text-gray-300">{{
         props.name
       }}</label>
     </div>

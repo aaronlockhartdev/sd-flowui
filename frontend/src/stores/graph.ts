@@ -97,6 +97,7 @@ export const useGraphStore = defineStore('graph', () => {
   function edgeToVueFlow(edge: EdgeSchema): Edge {
     return {
       id: edge.id,
+      type: 'edge',
       updatable: true,
       source: `${edge.source}`,
       sourceHandle: edge.sourceHandle,

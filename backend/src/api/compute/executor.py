@@ -16,7 +16,7 @@ class Executor:
         self.queue = queue if queue else mp.Queue()
         self._pipe, child_pipe = mp.Pipe()
         self._process = mp.Process(
-            target=main, args=(self.queue, child_pipe), daemon=True
+            target=process, args=(self.queue, child_pipe), daemon=True
         )
         self._pipe_callback = asyncio.Event()
 
@@ -50,7 +50,7 @@ class Executor:
         os.kill(self._process.pid, signal.SIGINT)
 
 
-def main(queue: mp.Queue, pipe: Connection):
+def process(queue: mp.Queue, pipe: Connection):
     cache: dict[str, Any] = {}
     while True:
         try:

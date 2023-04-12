@@ -132,9 +132,9 @@ class ComputeGraph(nx.DiGraph):
 
     @_broadcast_update
     def remove_edge(self, id: str) -> dict:
-        u, uh, v, vh = re.findall("e([1-9]\d*)(\w+)-([1-9]\d*)(\w+)", id)
+        u, uh, v, vh = re.findall("e(\d*)(\w+)-(\d*)(\w+)", id)[0]
 
-        print(u, uh, v, vh)
+        u, v = int(u), int(v)
 
         self.edges[u, v]["map"].remove((uh, vh))
         if not self.edges[u, v]["map"]:

@@ -25,7 +25,8 @@ watch(
   <button
     @click="
       () => {
-        if (Object.keys(props.struct).length > 0) expanded = !expanded
+        if (!expanded && Object.keys(struct).length) expanded = true
+        else expanded = false
       }
     "
     class="flex w-full items-center justify-between px-3 py-2 hover:bg-gray-600 hover:text-white"
