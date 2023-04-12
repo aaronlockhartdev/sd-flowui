@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { watch, ref } from 'vue'
+import { watch, ref, defineAsyncComponent } from 'vue'
+import type { Component } from 'vue'
+
 import { Handle, Position } from '@vue-flow/core'
 
-import Checkbox from '@/components/NodeCheckbox.vue'
-import FileDropdown from '@/components/NodeFileDropdown.vue'
-import TextBox from '@/components/NodeTextBox.vue'
-
 import { useGraphStore } from '@/stores/graph'
+import type { Template } from '@/stores/graph'
 
 const props = defineProps<{
+  id: string
   selected: boolean
   data: {
     type: string
@@ -23,6 +23,27 @@ const emits = defineEmits(['updateNode'])
 const values = ref(props.data.values)
 
 watch(values, (val) => emits('updateNode', val))
+
+const components: [
+  Component,
+  {
+    id: string
+    name: string
+    value: any
+    component: Template['values'][0]['component']
+  }
+][] = []
+for (const [k, v] of Object.entries(store.templates[props.data.type].values)) {
+  components.push([
+    defineAsyncComponent(() => import(`@/components/Node${v.component.type}.vue`)),
+    {
+      id: props.id,
+      name: v.name,
+      value: values.value[k],
+      component: v.component
+    }
+  ])
+}
 </script>
 
 <template>
@@ -54,28 +75,8 @@ watch(values, (val) => emits('updateNode', val))
           </li>
         </ul>
         <ul class="flex min-w-0 flex-col">
-          <li v-for="[k, v] in Object.entries(store.templates[props.data.type].values)">
-            <Checkbox
-              v-if="v.component.type === 'Checkbox'"
-              :name="v.name"
-              :value="values[k]"
-              :component="v.component as any"
-              @update-val="(val) => (values[k] = val)"
-            />
-            <FileDropdown
-              v-else-if="v.component.type === 'FileDropdown'"
-              :name="v.name"
-              :value="values[k]"
-              :component="v.component as any"
-              @update-val="(val) => (values[k] = val)"
-            />
-            <TextBox
-              v-else-if="v.component.type === 'TextBox'"
-              :name="v.name"
-              :value="values[k]"
-              :component="v.component as any"
-              @update-val="(val) => (values[k] = val)"
-            />
+          <li v-for="[c, props] in components">
+            <component :is="c" v-bind="props" />
           </li>
         </ul>
         <ul class="right-0 ml-1 flex flex-col">
