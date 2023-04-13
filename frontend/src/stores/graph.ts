@@ -54,6 +54,10 @@ export const useGraphStore = defineStore('graph', () => {
   const edges: Ref<Edge[]> = ref([])
   const version = ref(0)
 
+  function getNode(id: number) {
+    return nodes.value.find((node) => node.id === `${id}`)
+  }
+
   function startListening() {
     webSocketHandler.send('streams', { action: 'subscribe', streams: ['graph'] })
 
@@ -147,7 +151,7 @@ export const useGraphStore = defineStore('graph', () => {
       case 'update_position_node':
         if (!data.node) throw new Error(`Required value 'node' not received`)
 
-        let node = nodes.value.find((node) => node.id === `${data.node!.id}`)
+        let node = getNode(data.node!.id)
 
         if (!node) {
           fetchGraph()
@@ -160,7 +164,7 @@ export const useGraphStore = defineStore('graph', () => {
       case 'update_values_node':
         if (!data.node) throw new Error(`Required value 'node' not received`)
 
-        node = nodes.value.find((node) => node.id === `${data.node!.id}`)
+        node = getNode(data.node!.id)
 
         if (!node) {
           fetchGraph()
@@ -194,7 +198,7 @@ export const useGraphStore = defineStore('graph', () => {
 
   webSocketHandler.addEventListener('open', startListening)
 
-  async function addNode(type: string, position: { x: number; y: number }) {
+  function addNode(type: string, position: { x: number; y: number }) {
     const values: { [key: string]: any } = {}
 
     for (const [k, v] of Object.entries(templates.value[type].values)) {
@@ -225,15 +229,17 @@ export const useGraphStore = defineStore('graph', () => {
 
     version.value++
 
-    await webSocketHandler.send('graph', {
+    webSocketHandler.send('graph', {
       version: version.value - 1,
       action: 'create_node',
       id: version.value - 1,
       node: node
     })
+
+    return node.id
   }
 
-  async function removeNode(id: number) {
+  function removeNode(id: number) {
     const idx = nodes.value.findIndex((node) => node.id === `${id}`)
 
     if (idx > -1) nodes.value.splice(idx, 1)
@@ -241,14 +247,14 @@ export const useGraphStore = defineStore('graph', () => {
 
     version.value++
 
-    await webSocketHandler.send('graph', {
+    webSocketHandler.send('graph', {
       version: version.value - 1,
       action: 'delete_node',
       id: id
     })
   }
 
-  async function updatePositionNode(id: number, position: { x: number; y: number }) {
+  function updatePositionNode(id: number, position: { x: number; y: number }) {
     const node = nodes.value.find((node) => node.id === `${id}`)
 
     if (!node) throw new Error(`Invalid node ID '${id}'`)
@@ -257,7 +263,7 @@ export const useGraphStore = defineStore('graph', () => {
 
     node.position = position
 
-    await webSocketHandler.send('graph', {
+    webSocketHandler.send('graph', {
       version: version.value - 1,
       action: 'update_position_node',
       node: {
@@ -267,7 +273,7 @@ export const useGraphStore = defineStore('graph', () => {
     })
   }
 
-  async function updateValuesNode(id: number, values: { [key: string]: any }) {
+  function updateValuesNode(id: number, values: { [key: string]: any }) {
     const node = nodes.value.find((node) => node.id === `${id}`)
 
     if (!node) throw new Error(`Invalid node ID '${id}'`)
@@ -276,7 +282,7 @@ export const useGraphStore = defineStore('graph', () => {
 
     node.data.values = { ...node.data.values, ...values }
 
-    await webSocketHandler.send('graph', {
+    webSocketHandler.send('graph', {
       version: version.value - 1,
       action: 'update_position_node',
       node: {
@@ -286,12 +292,7 @@ export const useGraphStore = defineStore('graph', () => {
     })
   }
 
-  async function addEdge(
-    source: number,
-    target: number,
-    sourceHandle: string,
-    targetHandle: string
-  ) {
+  function addEdge(source: number, target: number, sourceHandle: string, targetHandle: string) {
     const edge: EdgeSchema = {
       id: `e${source}${sourceHandle}-${target}${targetHandle}`,
       source: source,
@@ -304,14 +305,16 @@ export const useGraphStore = defineStore('graph', () => {
 
     edges.value.push(edgeToVueFlow(edge))
 
-    await webSocketHandler.send('graph', {
+    webSocketHandler.send('graph', {
       version: version.value - 1,
       action: 'create_edge',
       edge: edge
     })
+
+    return edge.id
   }
 
-  async function removeEdge(id: string) {
+  function removeEdge(id: string) {
     const idx = edges.value.findIndex((edge) => edge.id === id)
 
     if (idx > -1) edges.value.splice(idx, 1)
@@ -319,7 +322,7 @@ export const useGraphStore = defineStore('graph', () => {
 
     version.value++
 
-    await webSocketHandler.send('graph', {
+    webSocketHandler.send('graph', {
       version: version.value - 1,
       action: 'delete_edge',
       id: id

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { watch, ref, defineAsyncComponent } from 'vue'
-import type { Component } from 'vue'
+import { watch, ref, defineAsyncComponent, onMounted, nextTick } from 'vue'
+import type { Component, Ref } from 'vue'
 
 import { Handle, Position } from '@vue-flow/core'
 

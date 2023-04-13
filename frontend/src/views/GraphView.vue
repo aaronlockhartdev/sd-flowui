@@ -1,26 +1,43 @@
 <script setup lang="ts">
-import { ref, markRaw } from 'vue'
+import { markRaw, watch, nextTick } from 'vue'
 import type { Component } from 'vue'
 
-import {
-  VueFlow,
-  useVueFlow,
-  ConnectionMode,
-  type EdgeUpdateEvent,
-  type EdgeChange
-} from '@vue-flow/core'
-import type { NodeChange, Connection, Edge } from '@vue-flow/core'
+import { VueFlow, useVueFlow, ConnectionMode } from '@vue-flow/core'
+import type { NodeChange, Connection, EdgeUpdateEvent, EdgeChange } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 
 import Node from '@/components/Node.vue'
-import Edge_ from '@/components/Edge.vue'
+import Edge from '@/components/Edge.vue'
 
 import { useGraphStore } from '@/stores/graph'
 
 const store = useGraphStore()
 
-const { vueFlowRef, project } = useVueFlow()
+const { vueFlowRef, project, findNode } = useVueFlow()
+
+function centerNode(id: number) {
+  return () => {
+    const node = findNode(`${id}`)
+
+    if (!node) return
+
+    const stop = watch(
+      () => node.dimensions,
+      (dims, oldDims) => {
+        setTimeout(stop, 100)
+        if (oldDims.width > 0 && oldDims.height > 0) {
+          store.updatePositionNode(id, {
+            x: node.position.x - dims.width / 2,
+            y: node.position.y - dims.height / 2
+          })
+          stop()
+        }
+      },
+      { deep: true, flush: 'post' }
+    )
+  }
+}
 
 function onDrop(evt: DragEvent) {
   const type = evt.dataTransfer?.getData('application/vueflow')
@@ -29,19 +46,19 @@ function onDrop(evt: DragEvent) {
 
   const { left, top } = vueFlowRef.value!.getBoundingClientRect()
 
-  store.addNode(type, project({ x: evt.clientX - left - 100, y: evt.clientY - top }))
+  const id = store.addNode(type, project({ x: evt.clientX - left, y: evt.clientY - top }))
+
+  nextTick(centerNode(id))
 }
 
 function onClick(type: string) {
   const { x, y, width, height } = vueFlowRef.value!.getBoundingClientRect()
 
-  console.log(vueFlowRef.value?.getBoundingClientRect())
+  const center = project({ x: x + 0.5 * width, y: y + 0.5 * height })
 
-  const center = project({ x: x + 0.5 * width - 100, y: y + 0.5 * height - 200 })
+  const id = store.addNode(type, center)
 
-  console.log(center)
-
-  store.addNode(type, center)
+  nextTick(centerNode(id))
 }
 
 function onNodesChange(changes: NodeChange[]) {
@@ -114,7 +131,7 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
         v-model:nodes="store.nodes"
         v-model:edges="store.edges"
         :node-types="{ node: markRaw(<Component>Node) }"
-        :edge-types="{ edge: markRaw(<Component>Edge_)}"
+        :edge-types="{ edge: markRaw(<Component>Edge)}"
         @nodes-change="onNodesChange"
         @edges-change="onEdgesChange"
         @edge-update="onEdgeUpdate"
@@ -122,7 +139,6 @@ function onEdgeUpdate({ edge, connection }: EdgeUpdateEvent) {
         @drop="onDrop"
         @dragover.prevent
         @dragenter.prevent
-        fit-view-on-init
         zoom-on-pinch
         pan-on-scroll
         :min-zoom="0.2"
