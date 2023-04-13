@@ -39,3 +39,4 @@ class TextBox(BaseModel):
     default: str
     placeholder: str
     maxlen: int
+    regex: str

@@ -23,4 +23,4 @@ class GraphEdgeSchema(BaseModel):
 
 
 class GraphQueueSchema(BaseModel):
-    id: int
+    id: int | None = None

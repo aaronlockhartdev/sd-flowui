@@ -14,7 +14,7 @@ from . import node
 
 class ComputeGraph(nx.DiGraph):
     def __init__(self, *args, **kwargs):
-        self.version = 0
+        self.version = 1
 
         @services.websocket_handler.on_message("graph")
         async def _(data, websocket: WebSocket):

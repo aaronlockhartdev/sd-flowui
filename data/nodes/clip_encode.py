@@ -12,7 +12,10 @@ class CLIPEncode(Node):
             "input_text": {
                 "name": "Text",
                 "component": components.TextBox(
-                    default="", placeholder="Write your prompt", maxlen=150
+                    default="",
+                    placeholder="Write your prompt",
+                    maxlen=150,
+                    regex="(\w+)",
                 ),
             }
         },

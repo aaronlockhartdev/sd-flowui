@@ -37,7 +37,7 @@ class Executor:
 
             self._pipe_callback.clear()
 
-    def enqueue(self, id: int, graph: graph.ComputeGraph):
+    def enqueue(self, graph: graph.ComputeGraph, id: int | None = None):
         self.queue.put_nowait((id, graph))
 
     def pause(self):
@@ -62,11 +62,20 @@ def process(queue: mp.Queue, pipe: Connection):
             if not nx.is_directed_acyclic_graph(graph_):
                 raise Exception("Graph contains cycle")
 
-            component = next(
-                c for c in nx.weakly_connected_components(graph_) if id in c
-            )
+            components = nx.weakly_connected_components(graph_)
 
-            pipe.send({"type": "info", "data": component})
+            component: dict[int, graph.Node] = {
+                n: graph_.nodes[n]["obj"]
+                for n in (
+                    next(c for c in components if id in c)
+                    if id
+                    else max(components, key=len)
+                )
+            }
+
+            input_nodes = {k: v for k, v in component.items() if not v.template.inputs}
+
+            pipe.send({"type": "info", "data": input_nodes})
 
         except KeyboardInterrupt:
             continue
