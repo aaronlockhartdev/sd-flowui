@@ -1,5 +1,6 @@
 import os
 import torch
+import torch._dynamo
 import signal
 import asyncio
 import traceback
@@ -99,9 +100,6 @@ def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
                 )
             }
 
-            pipe.send({"type": "info", "data": f"Executing {exec_order}"})
-
-            @torch.compile
             def exec():
                 outputs = {}
                 for k, v in exec_order.items():
@@ -118,13 +116,17 @@ def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
                         pipe.send(
                             {
                                 "type": "error",
-                                "data": {
-                                    "node": k,
-                                    "type": type(v).__name__,
-                                    "error": traceback.format_exc(),
-                                },
+                                "data": f"{type(v).__name__} [{k}]: {traceback.format_exc()}",
                             }
                         )
+                        return
+
+            pipe.send(
+                {
+                    "type": "info",
+                    "data": f"Executing: {torch._dynamo.explain(exec)[-1]}",
+                }
+            )
 
             exec()
 

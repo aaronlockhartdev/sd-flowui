@@ -15,11 +15,12 @@ classifiers = [
 dependencies = [
     "torch >=2.0,<3",
     "safetensors",
-    "diffusers[torch] ==0.14",
+    "diffusers[torch] >=0.15,<1",
     "transformers >=4.27.3,<5",
     "networkx",
     "watchfiles",
-    "websockets"
+    "websockets",
+    "omegaconf"
 ]
 dynamic = ["version", "description"]
 

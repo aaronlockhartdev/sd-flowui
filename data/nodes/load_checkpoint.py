@@ -6,17 +6,21 @@ from os import environ as env
 import torch
 import safetensors
 import diffusers, transformers
-from diffusers.pipelines.stable_diffusion.convert_from_ckpt import (
-    create_unet_diffusers_config,
-    convert_ldm_unet_checkpoint,
-    create_vae_diffusers_config,
-    convert_ldm_vae_checkpoint,
-    convert_open_clip_checkpoint,
-    convert_ldm_clip_checkpoint,
-)
+from omegaconf import OmegaConf
+from diffusers.pipelines.stable_diffusion.convert_from_ckpt import *
+
+from pydantic import BaseModel
 
 import api.utils as utils
 from api.compute.graph import Node, NodeTemplate, components
+
+
+class CLIPOutput(BaseModel):
+    clip: transformers.CLIPTextModel
+    tokenizer: transformers.CLIPTokenizer
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class LoadCheckpoint(Node):
@@ -52,7 +56,7 @@ class LoadCheckpoint(Node):
             },
         },
         outputs={
-            "clip": {"name": "CLIP", "type": transformers.CLIPTextModel},
+            "clip": {"name": "CLIP", "type": CLIPOutput},
             "unet": {"name": "UNet", "type": diffusers.UNet2DConditionModel},
             "vae": {"name": "VAE", "type": diffusers.AutoencoderKL},
         },
@@ -63,13 +67,11 @@ class LoadCheckpoint(Node):
             env["DATA_DIR"], "models", "configs", *self._cfg_path
         )
 
-        with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
-
         ckpt_path = os.path.join(
             env["DATA_DIR"], "models", "checkpoints", *self._ckpt_path
         )
-        if pathlib.Path(ckpt_path).suffix == "safetensors":
+
+        if pathlib.Path(ckpt_path).suffix == ".safetensors":
             ckpt = {}
             with safetensors.safe_open(ckpt_path, framework="pt", device="cpu") as f:
                 for key in f.keys():
@@ -77,13 +79,17 @@ class LoadCheckpoint(Node):
         else:
             ckpt = torch.load(ckpt_path)
 
+        config = OmegaConf.load(config_path)
+
         return {
             "unet": self._load_unet(ckpt, config),
             "vae": self._load_vae(ckpt, config),
             "clip": self._load_clip(ckpt, config),
         }
 
-    def _load_unet(self, ckpt, config) -> diffusers.UNet2DConditionModel:
+    def _load_unet(
+        self, ckpt: torch.Tensor, config: OmegaConf
+    ) -> diffusers.UNet2DConditionModel:
         unet_config = create_unet_diffusers_config(
             config, image_size=(768 if self._size_768 else 512)
         )
@@ -98,7 +104,9 @@ class LoadCheckpoint(Node):
 
         return unet
 
-    def _load_vae(self, ckpt, config):
+    def _load_vae(
+        self, ckpt: torch.Tensor, config: OmegaConf
+    ) -> diffusers.AutoencoderKL:
         vae_config = create_vae_diffusers_config(
             config, image_size=(768 if self._size_768 else 512)
         )
@@ -111,7 +119,9 @@ class LoadCheckpoint(Node):
 
         return vae
 
-    def _load_clip(self, ckpt, config):
+    def _load_clip(
+        self, ckpt: torch.Tensor, config: OmegaConf
+    ) -> transformers.CLIPTextModel:
         if (
             clip_type := config.model.params.cond_stage_config.target.split(".")[-1]
             == "FrozenOpenCLIPEmbedder"
