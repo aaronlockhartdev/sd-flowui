@@ -6,7 +6,10 @@ import traceback
 import networkx as nx
 import multiprocessing as mp
 from multiprocessing.connection import Connection
+from multiprocessing.synchronize import Event
 from typing import Any
+
+from fastapi.logger import logger
 
 import api.services as services
 
@@ -17,8 +20,9 @@ class Executor:
     def __init__(self, device: torch.device, queue: mp.Queue = None):
         self._queue = queue if queue else mp.Queue()
         self._pipe, child_pipe = mp.Pipe()
+        self._shutdown_event = mp.Event()
         self._process = mp.Process(
-            target=process, args=(self._queue, child_pipe), daemon=True
+            target=process, args=(device, self._queue, child_pipe, self._shutdown_event)
         )
         self._pipe_callback = asyncio.Event()
 
@@ -31,9 +35,16 @@ class Executor:
         while True:
             await self._pipe_callback.wait()
 
+            if self._pipe.closed:
+                return
+
             data = self._pipe.recv()
 
-            print(data)
+            match data["type"]:
+                case "error":
+                    logger.error(data["data"])
+                case "info":
+                    logger.info(data["data"])
 
             # TODO: do something with data
 
@@ -51,10 +62,23 @@ class Executor:
     def interrupt(self):
         os.kill(self._process.pid, signal.SIGINT)
 
+    def cleanup(self):
+        self._queue.close()
 
-def process(queue: mp.Queue, pipe: Connection):
+        asyncio.get_event_loop().remove_reader(self._pipe.fileno())
+
+        self._shutdown_event.set()
+        self._pipe.close()
+        self._pipe_callback.set()
+        self.interrupt()
+        self._process.join()
+
+
+def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
+    torch.set_default_device(device)
+
     cache: dict[str, Any] = {}
-    while True:
+    while not shutdown_event.is_set():
         try:
             id: int
             graph_: graph.ComputeGraph
@@ -75,6 +99,8 @@ def process(queue: mp.Queue, pipe: Connection):
                 )
             }
 
+            pipe.send({"type": "info", "data": f"Executing {exec_order}"})
+
             @torch.compile
             def exec():
                 outputs = {}
@@ -85,7 +111,20 @@ def process(queue: mp.Queue, pipe: Connection):
                         for m in graph_.edges[n, k]["map"]
                     }
 
-                    outputs[k] = v(**inputs)
+                    try:
+                        outputs[k] = v(**inputs)
+
+                    except Exception:
+                        pipe.send(
+                            {
+                                "type": "error",
+                                "data": {
+                                    "node": k,
+                                    "type": type(v).__name__,
+                                    "error": traceback.format_exc(),
+                                },
+                            }
+                        )
 
             exec()
 
@@ -99,6 +138,8 @@ def process(queue: mp.Queue, pipe: Connection):
                 }
             )
             continue
+
+    pipe.close()
 
 
 executor = Executor(torch.device("cuda", 0))

@@ -18,6 +18,7 @@ async def lifespan(app: FastAPI):
     yield
 
     services.file_watcher.stop()
+    compute.executor.cleanup()
 
 
 app = FastAPI(lifespan=lifespan)
