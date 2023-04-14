@@ -20,7 +20,7 @@ dependencies = [
     "networkx",
     "watchfiles",
     "websockets",
-    "omegaconf"
+    "omegaconf",
 ]
 dynamic = ["version", "description"]
 

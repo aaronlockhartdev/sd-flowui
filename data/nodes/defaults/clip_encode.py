@@ -3,12 +3,14 @@ import transformers
 
 from api.compute.graph import Node, NodeTemplate, components
 
+from .types import CLIPModel
+
 
 class CLIPEncode(Node):
     _input_text: str
 
     template = NodeTemplate(
-        inputs={"clip": {"name": "CLIP", "type": transformers.CLIPTextModel}},
+        inputs={"clip": {"name": "CLIP", "type": CLIPModel}},
         outputs={"embeddings": {"name": "CLIP Embeds", "type": torch.FloatTensor}},
         values={
             "input_text": {

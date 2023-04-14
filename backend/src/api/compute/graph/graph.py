@@ -16,33 +16,6 @@ class ComputeGraph(nx.DiGraph):
     def __init__(self, *args, **kwargs):
         self.version = 1
 
-        @services.websocket_handler.on_message("graph")
-        async def _(data, websocket: WebSocket):
-            if data["version"] < self.version:
-                await websocket.send(
-                    {"stream": "graph", "data": {"action": "sync_graph"}}
-                )
-
-                return
-
-            match data["action"]:
-                case "create_node":
-                    await self.add_node(**data["node"])
-                case "delete_node":
-                    await self.remove_node(id=data["id"])
-                case "update_position_node":
-                    await self.update_position_node(
-                        data["node"]["id"], data["node"]["position"]
-                    )
-                case "update_values_node":
-                    await self.update_values_node(
-                        data["node"]["id"], data["node"]["values"]
-                    )
-                case "create_edge":
-                    await self.add_edge(**data["edge"])
-                case "delete_edge":
-                    await self.remove_edge(data["id"])
-
         super().__init__(*args, **kwargs)
 
     @property
@@ -100,7 +73,7 @@ class ComputeGraph(nx.DiGraph):
     def update_values_node(self, id: int, values: dict[str, Any]) -> dict:
         obj: node.Node = self.nodes[id]["obj"]
 
-        obj.values.update(values)
+        obj.values = {**obj.values, **values}
 
         return {"action": "update_values_node", "node": {"id": id, "values": values}}
 

@@ -1,5 +1,4 @@
 import os
-import yaml
 import pathlib
 from os import environ as env
 
@@ -9,18 +8,9 @@ import diffusers, transformers
 from omegaconf import OmegaConf
 from diffusers.pipelines.stable_diffusion.convert_from_ckpt import *
 
-from pydantic import BaseModel
-
-import api.utils as utils
 from api.compute.graph import Node, NodeTemplate, components
 
-
-class CLIPOutput(BaseModel):
-    clip: transformers.CLIPTextModel
-    tokenizer: transformers.CLIPTokenizer
-
-    class Config:
-        arbitrary_types_allowed = True
+from .types import CLIPModel
 
 
 class LoadCheckpoint(Node):
@@ -56,7 +46,7 @@ class LoadCheckpoint(Node):
             },
         },
         outputs={
-            "clip": {"name": "CLIP", "type": CLIPOutput},
+            "clip": {"name": "CLIP", "type": CLIPModel},
             "unet": {"name": "UNet", "type": diffusers.UNet2DConditionModel},
             "vae": {"name": "VAE", "type": diffusers.AutoencoderKL},
         },

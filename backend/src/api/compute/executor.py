@@ -8,17 +8,26 @@ import networkx as nx
 import multiprocessing as mp
 from multiprocessing.connection import Connection
 from multiprocessing.synchronize import Event
+
+import logging
+import logging.config
+
 from typing import Any
+from enum import Enum
+from pydantic import BaseModel
 
-from fastapi.logger import logger
-
+import api.utils as utils
 import api.services as services
 
 from . import graph
 
+logging.config.dictConfig(utils.LOGGING_CONFIG)
+logger = logging.getLogger(__name__)
+
 
 class Executor:
     def __init__(self, device: torch.device, queue: mp.Queue = None):
+        self._device = device
         self._queue = queue if queue else mp.Queue()
         self._pipe, child_pipe = mp.Pipe()
         self._shutdown_event = mp.Event()
@@ -33,7 +42,7 @@ class Executor:
 
     async def __call__(self):
         self._process.start()
-        while True:
+        while not self._pipe.closed:
             await self._pipe_callback.wait()
 
             if self._pipe.closed:
@@ -41,11 +50,13 @@ class Executor:
 
             data = self._pipe.recv()
 
-            match data["type"]:
-                case "error":
-                    logger.error(data["data"])
-                case "info":
-                    logger.info(data["data"])
+            d = {"device": f"{self._device.type}:{self._device.index}"}
+
+            match data.type:
+                case IPCMessageType.ERROR:
+                    logger.error(data.msg, extra=d)
+                case IPCMessageType.INFO:
+                    logger.info(data.msg, extra=d)
 
             # TODO: do something with data
 
@@ -75,6 +86,16 @@ class Executor:
         self._process.join()
 
 
+class IPCMessageType(Enum):
+    ERROR = "error"
+    INFO = "info"
+
+
+class IPCMessage(BaseModel):
+    type: IPCMessageType
+    msg: str
+
+
 def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
     torch.set_default_device(device)
 
@@ -100,6 +121,7 @@ def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
                 )
             }
 
+            @torch.compile
             def exec():
                 outputs = {}
                 for k, v in exec_order.items():
@@ -114,34 +136,28 @@ def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
 
                     except Exception:
                         pipe.send(
-                            {
-                                "type": "error",
-                                "data": f"{type(v).__name__} [{k}]: {traceback.format_exc()}",
-                            }
+                            IPCMessage(
+                                type=IPCMessageType.ERROR,
+                                msg=f"Node '{k}' ({type(v).__name__}) raised an exception \n{traceback.format_exc()}",
+                            )
                         )
                         return
 
-            pipe.send(
-                {
-                    "type": "info",
-                    "data": f"Executing: {torch._dynamo.explain(exec)[-1]}",
-                }
-            )
-
+            pipe.send(IPCMessage(type=IPCMessageType.INFO, msg="Compiled torch graph"))
             exec()
 
         except KeyboardInterrupt:
             continue
         except Exception:
             pipe.send(
-                {
-                    "type": "error",
-                    "data": traceback.format_exc(),
-                }
+                IPCMessage(
+                    type=IPCMessageType.ERROR,
+                    msg=traceback.format_exc(),
+                )
             )
             continue
 
     pipe.close()
 
 
-executor = Executor(torch.device("cuda", 0))
+executor = Executor(torch.device("cpu", 0))

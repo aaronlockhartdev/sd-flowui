@@ -1,17 +1,26 @@
 import asyncio
+import logging
+import logging.config
 from os import environ as env
 
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, logger
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import services
 from . import compute
+from . import utils
+
+logging.config.dictConfig(utils.LOGGING_CONFIG)
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    compute.graph.import_nodes()
+
     asyncio.create_task(services.file_watcher())
     asyncio.create_task(compute.executor())
 
