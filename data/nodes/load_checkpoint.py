@@ -30,11 +30,13 @@ class LoadCheckpoint(Node):
         values={
             "ckpt_path": {
                 "name": "Checkpoint",
-                "component": components.FileDropdown(directory=["checkpoints"]),
+                "component": components.FileDropdown(
+                    directory=["models", "checkpoints"]
+                ),
             },
             "cfg_path": {
                 "name": "Config",
-                "component": components.FileDropdown(directory=["configs"]),
+                "component": components.FileDropdown(directory=["models", "configs"]),
             },
             "upcast_att": {
                 "name": "Upcast Attention",
@@ -57,7 +59,10 @@ class LoadCheckpoint(Node):
     )
 
     def __call__(self):
-        config_path = os.path.join(env["DATA_DIR"], "configs", *self._cfg_path)
+        config_path = os.path.join(
+            env["DATA_DIR"], "models", "configs", *self._cfg_path
+        )
+
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
 

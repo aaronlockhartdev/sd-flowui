@@ -24,4 +24,5 @@ async def read_graph():
 
 @router.post("/queue")
 async def queue_job(queue: utils.GraphQueueSchema):
+    print(queue)
     compute.executor.enqueue(compute_graph, id=queue.id)
