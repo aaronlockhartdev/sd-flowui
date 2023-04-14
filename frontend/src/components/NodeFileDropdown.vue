@@ -6,7 +6,7 @@ import { useFilesStore } from '@/stores/files'
 import Child from '@/components/NodeFileDropdownChild.vue'
 
 const props = defineProps<{
-  id: string
+  node_id: string
   name: string
   value: string[]
   component: {

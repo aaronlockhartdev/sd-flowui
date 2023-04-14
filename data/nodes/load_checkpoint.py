@@ -56,7 +56,7 @@ class LoadCheckpoint(Node):
         },
     )
 
-    def __call__(self) -> None:
+    def __call__(self):
         config_path = os.path.join(env["DATA_DIR"], "configs", *self._cfg_path)
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)

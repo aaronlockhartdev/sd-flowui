@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 const props = defineProps<{
-  id: string
+  node_id: string
   name: string
   value: string
   component: {
@@ -28,16 +28,18 @@ const numWords = computed(() => Array.from(text.value.matchAll(re)).length)
   <div class="wrapper">
     <div class="mx-2 my-1 w-[18rem]">
       <div class="my-1 flex justify-between">
-        <label :for="`textarea_${name}_${props.id}`" class="text-xs font-normal text-gray-300">{{
-          props.name
-        }}</label>
+        <label
+          :for="`textarea_${name}_${props.node_id}`"
+          class="text-xs font-normal text-gray-300"
+          >{{ props.name }}</label
+        >
         <p v-if="props.component.regex" class="text-xs font-normal text-gray-300">
           {{ numWords }}/{{ props.component.maxlen ? props.component.maxlen : '&infin;' }}
         </p>
       </div>
 
       <textarea
-        :id="`textarea_${name}_${props.id}}`"
+        :id="`textarea_${name}_${props.node_id}}`"
         rows="6"
         :class="
           props.component.maxlen &&

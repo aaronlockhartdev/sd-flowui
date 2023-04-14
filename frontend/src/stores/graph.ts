@@ -151,7 +151,7 @@ export const useGraphStore = defineStore('graph', () => {
       case 'update_position_node':
         if (!data.node) throw new Error(`Required value 'node' not received`)
 
-        let node = getNode(data.node!.id)
+        const node = getNode(data.node.id)
 
         if (!node) {
           fetchGraph()
@@ -164,14 +164,16 @@ export const useGraphStore = defineStore('graph', () => {
       case 'update_values_node':
         if (!data.node) throw new Error(`Required value 'node' not received`)
 
-        node = getNode(data.node!.id)
+        const node_ = getNode(data.node.id)
 
-        if (!node) {
+        if (!node_) {
           fetchGraph()
           throw new Error(`Node '${data.node.id}' does not exist, resyncing graph...`)
         }
 
-        node.data.values = { ...node.data.values, ...data.node.values }
+        node_.data.values = { ...node_.data.values, ...data.node.values }
+
+        break
 
       case 'create_edge':
         if (!data.edge) throw new Error(`Required value 'edge' not received`)
@@ -284,7 +286,7 @@ export const useGraphStore = defineStore('graph', () => {
 
     webSocketHandler.send('graph', {
       version: version.value - 1,
-      action: 'update_position_node',
+      action: 'update_values_node',
       node: {
         id: id,
         values: values

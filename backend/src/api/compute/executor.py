@@ -1,4 +1,5 @@
 import os
+import torch
 import signal
 import asyncio
 import networkx as nx
@@ -12,11 +13,11 @@ from . import graph
 
 
 class Executor:
-    def __init__(self, queue: mp.Queue = None):
+    def __init__(self, device: torch.device, queue: mp.Queue = None):
         self.queue = queue if queue else mp.Queue()
         self._pipe, child_pipe = mp.Pipe()
         self._process = mp.Process(
-            target=process, args=(self.queue, child_pipe), daemon=True
+            target=process, args=(device, self.queue, child_pipe), daemon=True
         )
         self._pipe_callback = asyncio.Event()
 
@@ -50,7 +51,9 @@ class Executor:
         os.kill(self._process.pid, signal.SIGINT)
 
 
-def process(queue: mp.Queue, pipe: Connection):
+def process(device: torch.device, queue: mp.Queue, pipe: Connection):
+    torch.set_default_device(device)
+
     cache: dict[str, Any] = {}
     while True:
         try:
@@ -64,23 +67,35 @@ def process(queue: mp.Queue, pipe: Connection):
 
             components = nx.weakly_connected_components(graph_)
 
-            component: dict[int, graph.Node] = {
+            component: set[int] = set(
+                next(c for c in components if id in c)
+                if id
+                else max(components, key=len)
+            )
+
+            exec_order: dict[int, graph.Node] = {
                 n: graph_.nodes[n]["obj"]
-                for n in (
-                    next(c for c in components if id in c)
-                    if id
-                    else max(components, key=len)
-                )
+                for n in nx.topological_sort(graph_)
+                if n in component
             }
 
-            input_nodes = {k: v for k, v in component.items() if not v.template.inputs}
+            @torch.compile
+            def exec():
+                outputs = {}
+                for k, v in exec_order.items():
+                    inputs = {
+                        (map := graph_.edges[n, k]["map"])[1]: outputs[n, map[0]]
+                        for n in graph_.predecessors(k)
+                    }
+                    outputs[k] = v(**inputs)
 
-            pipe.send({"type": "info", "data": input_nodes})
+            exec()
 
         except KeyboardInterrupt:
             continue
         except Exception as e:
             pipe.send({"type": "error", "data": e})
+            continue
 
 
-executor = Executor()
+executor = Executor(torch.device("cuda", 0))

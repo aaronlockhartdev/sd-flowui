@@ -18,16 +18,11 @@ const props = defineProps<{
 
 const store = useGraphStore()
 
-const emits = defineEmits(['updateNode'])
-
-const values = ref(props.data.values)
-
-watch(values, (val) => emits('updateNode', val))
-
 const components: [
   Component,
   {
-    id: string
+    node_id: string
+    val_id: string
     name: string
     value: any
     component: Template['values'][0]['component']
@@ -37,9 +32,10 @@ for (const [k, v] of Object.entries(store.templates[props.data.type].values)) {
   components.push([
     defineAsyncComponent(() => import(`@/components/Node${v.component.type}.vue`)),
     {
-      id: props.id,
+      node_id: props.id,
+      val_id: k,
       name: v.name,
-      value: values.value[k],
+      value: props.data.values[k],
       component: v.component
     }
   ])
@@ -75,8 +71,12 @@ for (const [k, v] of Object.entries(store.templates[props.data.type].values)) {
           </li>
         </ul>
         <ul class="flex min-w-0 flex-col">
-          <li v-for="[c, props] in components">
-            <component :is="c" v-bind="props" />
+          <li v-for="[c, p] in components">
+            <component
+              :is="c"
+              v-bind="p"
+              @updateVal="(val: any) => {store.updateValuesNode(parseInt(props.id), {[p.val_id]: val})}"
+            />
           </li>
         </ul>
         <ul class="right-0 ml-1 flex flex-col">

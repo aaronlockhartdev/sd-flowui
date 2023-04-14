@@ -100,7 +100,7 @@ class ComputeGraph(nx.DiGraph):
     def update_values_node(self, id: int, values: dict[str, Any]) -> dict:
         obj: node.Node = self.nodes[id]["obj"]
 
-        obj.values = values
+        obj.values.update(values)
 
         return {"action": "update_values_node", "node": {"id": id, "values": values}}
 
