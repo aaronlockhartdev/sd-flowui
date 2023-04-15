@@ -43,6 +43,12 @@ class NodeMeta(type):
         class_ = super().__new__(cls, name, bases, dict)
 
         if bases:
+            if not "template" in dict:
+                raise ValueError("Node must contain a template")
+
+            if not "__call__" in dict:
+                raise ValueError("Node must contain a __call__ function")
+
             nodes[name] = class_
 
         return class_
