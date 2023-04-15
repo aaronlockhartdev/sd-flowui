@@ -1,21 +1,27 @@
 from __future__ import annotations
 
-from os import environ as env
-from pydantic import BaseModel
+import re
+from pydantic import BaseModel, Field, validator
 
 import api.utils as utils
+
+from .components import Component
 
 nodes: dict[str, Node] = {}
 
 
 class Connection(BaseModel):
     name: str
-    type: type
+    type: type = Field(None, exclude=True)
+    typeName: str
+
+    def __init__(self, name: str, type: type):
+        super().__init__(name=name, type=type, typeName=type.__name__ if type else "")
 
 
 class Value(BaseModel):
     name: str
-    component: BaseModel
+    component: Component
 
 
 class NodeTemplate(BaseModel):
@@ -23,10 +29,18 @@ class NodeTemplate(BaseModel):
     outputs: dict[str, Connection] = {}
     values: dict[str, Value]
 
+    @validator("inputs", "outputs", "values")
+    def valid_ids(cls, value):
+        for k in value.keys():
+            if not re.fullmatch("^[a-zA-Z0-9_]+$", k):
+                raise ValueError(f"Invalid parameter name '{k}'")
+
+        return value
+
 
 class NodeMeta(type):
-    def __new__(cls, name, bases, dct):
-        class_ = super().__new__(cls, name, bases, dct)
+    def __new__(cls, name, bases, dict):
+        class_ = super().__new__(cls, name, bases, dict)
 
         if bases:
             nodes[name] = class_
@@ -49,15 +63,3 @@ class Node(metaclass=NodeMeta):
     def values(self, values: dict):
         for k, v in values.items():
             setattr(self, f"_{k}", v)
-
-    @utils.cached_classproperty
-    def template_computed(cls) -> dict:
-        dict = cls.template.dict()
-
-        for v in dict["inputs"].values():
-            v["type"] = v["type"].__name__
-
-        for v in dict["outputs"].values():
-            v["type"] = v["type"].__name__
-
-        return dict

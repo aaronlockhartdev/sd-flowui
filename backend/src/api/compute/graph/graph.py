@@ -27,7 +27,7 @@ class ComputeGraph(nx.DiGraph):
     def update_values_node(self, id: int, values: dict[str, Any]) -> dict:
         obj: node.Node = self.nodes[id]["obj"]
 
-        obj.values = {**obj.values, **values}
+        obj.values = values
 
     def remove_node(self, id: int) -> dict:
         super().remove_node(id)

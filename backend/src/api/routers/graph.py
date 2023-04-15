@@ -24,7 +24,7 @@ async def read_graph():
         "version": graph_version,
         "nodes": list(compute_graph.convert_nodes()),
         "edges": list(compute_graph.convert_edges()),
-        "templates": {k: v.template_computed for k, v in graph.node.nodes.items()},
+        "templates": {k: v.template.dict() for k, v in graph.node.nodes.items()},
     }
 
 
