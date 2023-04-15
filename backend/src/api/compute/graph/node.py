@@ -12,7 +12,7 @@ nodes: dict[str, Node] = {}
 
 class Connection(BaseModel):
     name: str
-    type: type = Field(None, exclude=True)
+    type: type = Field(exclude=True)
     typeName: str
 
     def __init__(self, name: str, type: type):
