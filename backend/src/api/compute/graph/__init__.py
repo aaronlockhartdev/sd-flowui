@@ -22,48 +22,52 @@ def import_nodes():
 
     nodes_path = os.path.join(env["DATA_DIR"], "nodes")
 
-    parent_spec = importlib.machinery.ModuleSpec(
-        nodes_package := f"api.compute.graph.nodes", None, is_package=True
+    nodes_spec = importlib.machinery.ModuleSpec(
+        nodes_name := f"api.compute.graph.nodes", None, is_package=True
     )
-    parent_spec.submodule_search_locations.append(nodes_path)
+    nodes_spec.submodule_search_locations.append(nodes_path)
 
-    def import_package(dir: str) -> tuple:
-        spec = importlib.machinery.ModuleSpec(
-            package_name := f"api.compute.graph.nodes.{dir}", None, is_package=True
+    nodes = importlib.util.module_from_spec(nodes_spec)
+    sys.modules[nodes_name] = nodes
+
+    def load_module(package_name: str, module_path):
+        module_spec = importlib.util.spec_from_file_location(
+            module_name := f"{package_name}.{os.path.splitext(os.path.basename(module_path))[0]}",
+            module_path,
         )
-
-        spec.submodule_search_locations.append(os.path.join(nodes_path, dir))
-
-        package = importlib.util.module_from_spec(spec)
-
-        return package_name, package
-
-    def import_module(package_name: str, path: str) -> tuple:
-        spec = importlib.util.spec_from_file_location(
-            module_name := f"{package_name}.{os.path.splitext(os.path.basename(path))[0]}",
-            path,
-        )
-
-        module = importlib.util.module_from_spec(spec)
-
-        return module_name, module
-
-    for path in glob.glob(os.path.join(nodes_path, "*.py")):
-        module_name, module = import_module(nodes_package, path)
-        logger.info(f"Importing module {module_name}")
+        module = importlib.util.module_from_spec(module_spec)
         sys.modules[module_name] = module
+        module_spec.loader.exec_module(module)
 
-    for dir in os.listdir(nodes_path):
-        if not os.path.isdir(os.path.join(nodes_path, dir)) or (
-            dir.startswith("__") and (dir.endswith("__"))
+        return module_name
+
+    def load_package(package_path):
+        package_spec = importlib.machinery.ModuleSpec(
+            package_name := f"{nodes_name}.{os.path.splitext(os.path.basename(package_path))[0]}",
+            None,
+            is_package=True,
+        )
+        package_spec.submodule_search_locations.append(package_path)
+
+        package = importlib.util.module_from_spec(package_spec)
+
+        sys.modules[package_name] = package
+
+        return package_name
+
+    for module_path in glob.glob(os.path.join(nodes_path, "*.py")):
+        module_name = load_module(nodes_name, module_path)
+        logger.info(f"Loaded nodes submodule {module_name}")
+
+    for package_path in glob.glob(os.path.join(nodes_path, "*")):
+        if not os.path.isdir(package_path) or os.path.basename(package_path).startswith(
+            "__"
         ):
             continue
 
-        package_name, package = import_package(dir)
-        logger.info(f"Importing package {package_name}")
-        sys.modules[package_name] = package
+        package_name = load_package(package_path)
+        logger.info(f"Loaded nodes subpackage {package_name}")
 
-        for path in glob.glob(os.path.join(nodes_path, dir, "*.py")):
-            module_name, module = import_module(package_name, path)
-            logger.info(f"Importing submodule {module_name}")
-            sys.modules[module_name] = module
+        for module_path in glob.glob(os.path.join(package_path, "*.py")):
+            module_name = load_module(package_name, module_path)
+            logger.info(f"Loaded {package_name.split('.')[-1]} submodule {module_name}")

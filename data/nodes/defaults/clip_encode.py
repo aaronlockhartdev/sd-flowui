@@ -4,7 +4,6 @@ import transformers
 from api.compute.graph import Node, NodeTemplate, components
 
 from .types import CLIPModel
-from .. import test
 
 
 class CLIPEncode(Node):

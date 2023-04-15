@@ -97,6 +97,10 @@ class IPCMessage(BaseModel):
 
 
 def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
+    import warnings
+
+    warnings.filterwarnings("error")
+
     torch.set_default_device(device)
 
     cache: dict[str, Any] = {}
@@ -147,6 +151,14 @@ def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
             exec()
 
         except KeyboardInterrupt:
+            continue
+        except RuntimeWarning:
+            pipe.send(
+                IPCMessage(
+                    type=IPCMessage.WARNING,
+                    msg=warnings.formatwarning(),
+                )
+            )
             continue
         except Exception:
             pipe.send(

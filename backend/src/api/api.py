@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     compute.graph.import_nodes()
-
     asyncio.create_task(services.file_watcher())
     asyncio.create_task(compute.executor())
 
