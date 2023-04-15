@@ -9,7 +9,7 @@ class NodePositionSchema(BaseModel):
 
 
 class GraphNodeSchema(BaseModel):
-    id: int | None = None
+    id: int
     type: str | None = None
     values: dict[str, Any] | None = None
     position: NodePositionSchema | None = None
@@ -44,7 +44,7 @@ class GraphUpdateSchema(BaseModel):
     action: GraphUpdateAction
     node: GraphNodeSchema | None = None
     edge: GraphEdgeSchema | None = None
-    id: int | None = None
+    id: int | str | None = None
 
     class Config:
         use_enum_values = True
