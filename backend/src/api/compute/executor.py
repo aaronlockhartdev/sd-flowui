@@ -12,8 +12,8 @@ from multiprocessing.synchronize import Event
 import logging
 import logging.config
 
+import enum
 from typing import Any
-from enum import Enum
 from pydantic import BaseModel
 
 import api.utils as utils
@@ -83,9 +83,10 @@ class Executor:
         self._process.join()
 
 
-class IPCMessageType(Enum):
-    ERROR = "error"
-    INFO = "info"
+@enum.unique
+class IPCMessageType(enum.IntEnum):
+    ERROR = enum.auto()
+    INFO = enum.auto()
 
 
 class IPCMessage(BaseModel):

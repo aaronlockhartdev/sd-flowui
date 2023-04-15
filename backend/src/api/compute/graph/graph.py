@@ -2,88 +2,36 @@ from __future__ import annotations
 from typing import Any
 
 import re
-import asyncio
 import networkx as nx
 from fastapi import WebSocket
 
 import api.utils as utils
-import api.services as services
 
 from . import node
 
 
 class ComputeGraph(nx.DiGraph):
     def __init__(self, *args, **kwargs):
-        self.version = 1
-
         super().__init__(*args, **kwargs)
 
-    @property
-    def nodes_computed(self):
-        for id in self.nodes:
-            yield self._node_to_dict(id)
-
-    @property
-    def edges_computed(self):
-        for u, v in self.edges:
-            yield from self._edge_to_list(u, v)
-
-    @staticmethod
-    def _broadcast_update(func):
-        async def wrapper(self: ComputeGraph, *args, **kwargs):
-            if type(res := func(self, *args, **kwargs)) is list:
-                coroutines = []
-                for msg in res:
-                    self.version += 1
-
-                    msg.update({"version": self.version})
-                    coroutines.append(
-                        services.websocket_handler.broadcast("graph", msg)
-                    )
-                await asyncio.gather(*coroutines)
-
-            else:
-                self.version += 1
-
-                res.update({"version": self.version})
-                await services.websocket_handler.broadcast("graph", res)
-
-        return wrapper
-
-    @_broadcast_update
     def add_node(self, id: int, type: str, values: dict, position: dict) -> dict:
         obj = node.nodes[type](values, position)
 
         super().add_node(id, obj=obj)
 
-        return {"action": "create_node", "node": self._node_to_dict(id).dict()}
-
-    @_broadcast_update
     def update_position_node(self, id: int, position: dict[str, int]) -> dict:
         obj: node.Node = self.nodes[id]["obj"]
 
         obj.position = position
 
-        return {
-            "action": "update_position_node",
-            "node": {"id": id, "position": position},
-        }
-
-    @_broadcast_update
     def update_values_node(self, id: int, values: dict[str, Any]) -> dict:
         obj: node.Node = self.nodes[id]["obj"]
 
         obj.values = {**obj.values, **values}
 
-        return {"action": "update_values_node", "node": {"id": id, "values": values}}
-
-    @_broadcast_update
     def remove_node(self, id: int) -> dict:
         super().remove_node(id)
 
-        return {"action": "delete_node", "id": id}
-
-    @_broadcast_update
     def add_edge(
         self, id: str, source: int, target: int, sourceHandle: str, targetHandle: str
     ) -> dict:
@@ -92,18 +40,6 @@ class ComputeGraph(nx.DiGraph):
         else:
             super().add_edge(source, target, map={(sourceHandle, targetHandle)})
 
-        return {
-            "action": "create_edge",
-            "edge": {
-                "id": id,
-                "source": source,
-                "target": target,
-                "sourceHandle": sourceHandle,
-                "targetHandle": targetHandle,
-            },
-        }
-
-    @_broadcast_update
     def remove_edge(self, id: str) -> dict:
         u, uh, v, vh = re.findall("e(\d*)(\w+)-(\d*)(\w+)", id)[0]
 
@@ -113,16 +49,22 @@ class ComputeGraph(nx.DiGraph):
         if not self.edges[u, v]["map"]:
             super().remove_edge(u, v)
 
-        return {"action": "remove_edge", "id": id}
+    def convert_nodes(self):
+        for n in self.nodes:
+            yield self.convert_node(n)
 
-    def _node_to_dict(self, id: int) -> utils.GraphNodeSchema:
+    def convert_edges(self):
+        for u, v in self.edges:
+            yield from self.convert_edge(u, v)
+
+    def convert_node(self, id: int) -> utils.GraphNodeSchema:
         obj: node.Node = self.nodes[id]["obj"]
 
         return utils.GraphNodeSchema(
             id=id, type=type(obj).__name__, values=obj.values, position=obj.position
         )
 
-    def _edge_to_list(self, u: int, v: int) -> list[utils.GraphEdgeSchema]:
+    def convert_edge(self, u: int, v: int) -> list[utils.GraphEdgeSchema]:
         map: tuple[str] = self.edges[u, v]["map"]
 
         return [

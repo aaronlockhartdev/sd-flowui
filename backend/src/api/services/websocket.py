@@ -1,4 +1,6 @@
 from fastapi import WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
+import inspect
 import asyncio
 
 
@@ -33,10 +35,15 @@ class WebSocketHandler:
         if websocket in self._active:
             del self._active[websocket]
 
-    async def broadcast(self, stream: str, data: dict):
+    async def broadcast(self, stream: str, data: dict | BaseModel):
         await asyncio.gather(
             *[
-                k.send_json({"stream": stream, "data": data})
+                k.send_json(
+                    {
+                        "stream": stream,
+                        "data": data if type(data) is dict else data.dict(),
+                    }
+                )
                 for k, v in self._active.items()
                 if stream in v
             ]
@@ -63,6 +70,23 @@ class WebSocketHandler:
                 self._on_message[stream] = [func]
 
             return func
+
+        return decorator
+
+    def broadcast_func(self, stream: str):
+        def decorator(func):
+            if inspect.isgeneratorfunction(func):
+
+                async def wrapper(*args, **kwargs):
+                    for msg in func(*args, **kwargs):
+                        await self.broadcast(stream, msg)
+
+                return wrapper
+
+            async def wrapper(*args, **kwargs):
+                await self.broadcast(stream, func(*args, **kwargs))
+
+            return wrapper
 
         return decorator
 
