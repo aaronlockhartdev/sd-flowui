@@ -1,10 +1,7 @@
 import os
 import torch
-import torch._dynamo
 import signal
 import asyncio
-import traceback
-import networkx as nx
 import multiprocessing as mp
 from multiprocessing.connection import Connection
 from multiprocessing.synchronize import Event
@@ -25,14 +22,26 @@ logging.config.dictConfig(utils.LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 
+@enum.unique
+class IPCMessageType(enum.IntEnum):
+    ERROR = enum.auto()
+    WARNING = enum.auto()
+    INFO = enum.auto()
+
+
+class IPCMessage(BaseModel):
+    type: IPCMessageType
+    msg: str
+
+
 class Executor:
     def __init__(self, device: torch.device, queue: mp.Queue = None):
         self._device = device
         self._queue = queue if queue else mp.Queue()
-        self._pipe, child_pipe = mp.Pipe()
+        self._pipe, send_pipe = mp.Pipe(duplex=False)
         self._shutdown_event = mp.Event()
         self._process = mp.Process(
-            target=process, args=(device, self._queue, child_pipe, self._shutdown_event)
+            target=process, args=(device, self._queue, send_pipe, self._shutdown_event)
         )
         self._pipe_callback = asyncio.Event()
 
@@ -45,13 +54,18 @@ class Executor:
         while not self._pipe.closed:
             await self._pipe_callback.wait()
 
-            data = self._pipe.recv()
+            try:
+                data = self._pipe.recv()
+            except EOFError:
+                continue
 
             d = {"device": f"{self._device.type}:{self._device.index}"}
 
             match data.type:
                 case IPCMessageType.ERROR:
                     logger.error(data.msg, extra=d)
+                case IPCMessageType.WARNING:
+                    logger.warning(data.msg, extra=d)
                 case IPCMessageType.INFO:
                     logger.info(data.msg, extra=d)
 
@@ -83,24 +97,18 @@ class Executor:
         self._process.join()
 
 
-@enum.unique
-class IPCMessageType(enum.IntEnum):
-    ERROR = enum.auto()
-    INFO = enum.auto()
-
-
-class IPCMessage(BaseModel):
-    type: IPCMessageType
-    msg: str
-
-
 def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
     import warnings
+    import traceback
 
-    warnings.filterwarnings("error")
+    import networkx as nx
+    import torch._dynamo as dynamo
+    import torch._dynamo.config as dynamo_config
+
+    warnings.simplefilter("ignore")
 
     torch.set_default_device(device)
-
+    dynamo_config.suppress_errors = True
     cache: dict[str, Any] = {}
     while not shutdown_event.is_set():
         try:
@@ -128,14 +136,16 @@ def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
                 outputs = {}
                 for k, v in exec_order.items():
                     inputs = {
-                        m[1]: outputs[n, m[0]]
+                        m[1]: outputs[n][m[0]]
                         for n in graph_.predecessors(k)
                         for m in graph_.edges[n, k]["map"]
                     }
 
                     try:
                         outputs[k] = v(**inputs)
-
+                        pipe.send(
+                            IPCMessage(type=IPCMessageType.INFO, msg=str(outputs[k]))
+                        )
                     except Exception:
                         pipe.send(
                             IPCMessage(
@@ -145,18 +155,9 @@ def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
                         )
                         return
 
-            pipe.send(IPCMessage(type=IPCMessageType.INFO, msg="Compiled torch graph"))
             exec()
 
         except KeyboardInterrupt:
-            continue
-        except RuntimeWarning:
-            pipe.send(
-                IPCMessage(
-                    type=IPCMessage.WARNING,
-                    msg=warnings.formatwarning(),
-                )
-            )
             continue
         except Exception:
             pipe.send(

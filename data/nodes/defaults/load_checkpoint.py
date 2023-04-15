@@ -114,10 +114,13 @@ class LoadCheckpoint(Node):
     ) -> transformers.CLIPTextModel:
         if (
             clip_type := config.model.params.cond_stage_config.target.split(".")[-1]
-            == "FrozenOpenCLIPEmbedder"
-        ):
+        ) == "FrozenOpenCLIPEmbedder":
             clip = convert_open_clip_checkpoint(ckpt)
         elif clip_type == "FrozenCLIPEmbedder":
             clip = convert_ldm_clip_checkpoint(ckpt)
+        else:
+            raise ValueError(
+                f"CLIP type is {clip_type}, should be 'FrozenCLIPEmbedder or FrozenOpenCLIPEmbedder"
+            )
 
         return clip

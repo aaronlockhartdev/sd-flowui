@@ -1,3 +1,5 @@
+import colored
+
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -8,7 +10,7 @@ LOGGING_CONFIG = {
         },
         "executor": {
             "()": "uvicorn.logging.ColourizedFormatter",
-            "format": "%(levelprefix)-8s [%(device)s](%(process)d) :: %(message)s",
+            "format": f"%(levelprefix)-8s {colored.fg('red')}{colored.attr('bold')}[%(device)s](%(process)d){colored.attr('reset')} :: %(message)s",
         },
     },
     "handlers": {

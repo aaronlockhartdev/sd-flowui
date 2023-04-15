@@ -21,6 +21,7 @@ dependencies = [
     "watchfiles",
     "websockets",
     "omegaconf",
+    "colored"
 ]
 dynamic = ["version", "description"]
 
