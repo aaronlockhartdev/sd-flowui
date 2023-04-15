@@ -41,7 +41,8 @@ class Executor:
         self._pipe, send_pipe = mp.Pipe(duplex=False)
         self._shutdown_event = mp.Event()
         self._process = mp.Process(
-            target=process, args=(device, self._queue, send_pipe, self._shutdown_event)
+            target=utils.suppress_std(process),
+            args=(device, self._queue, send_pipe, self._shutdown_event),
         )
         self._pipe_callback = asyncio.Event()
 
