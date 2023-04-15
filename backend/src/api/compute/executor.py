@@ -45,9 +45,6 @@ class Executor:
         while not self._pipe.closed:
             await self._pipe_callback.wait()
 
-            if self._pipe.closed:
-                return
-
             data = self._pipe.recv()
 
             d = {"device": f"{self._device.type}:{self._device.index}"}
@@ -79,9 +76,9 @@ class Executor:
 
         asyncio.get_event_loop().remove_reader(self._pipe.fileno())
 
-        self._shutdown_event.set()
         self._pipe.close()
-        self._pipe_callback.set()
+
+        self._shutdown_event.set()
         self.interrupt()
         self._process.join()
 
