@@ -26,10 +26,10 @@ class CLIPEncode(Node):
     )
 
     def __call__(self, clip):
-        pass
+        return self._encode_prompt(clip, self._input_text)
 
     @torch.no_grad()
-    def _encode_prompt(self, clip, prompt):
+    def _encode_prompt(self, clip: transformers.CLIPTextModel, prompt: str):
         tokenizer: transformers.CLIPTokenizer = (
             transformers.CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
         )
@@ -42,4 +42,16 @@ class CLIPEncode(Node):
             return_tensors="pt",
         )
 
-        text_embeddings = clip(text_input.input_ids.to())[0]
+        if (
+            hasattr(clip.config, "use_attention_mask")
+            and clip.config.use_attention_mask
+        ):
+            attention_mask = text_input.attention_mask.to()
+        else:
+            attention_mask = None
+
+        text_embeddings = clip(
+            text_input.input_ids.to(), attention_mask=attention_mask
+        )[0].to(dtype=clip.dtype)
+
+        return text_embeddings

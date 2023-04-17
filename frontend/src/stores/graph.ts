@@ -14,13 +14,13 @@ export interface Template {
   inputs: {
     [key: string]: {
       name: string
-      typeName: string
+      type: string
     }
   }
   outputs: {
     [key: string]: {
       name: string
-      typeName: string
+      type: string
     }
   }
   values: {
@@ -341,9 +341,9 @@ export const useGraphStore = defineStore('graph', () => {
     if (!connection.sourceHandle) throw new Error(`Connection requires 'sourceHandle'`)
     if (!connection.targetHandle) throw new Error(`Connection requires 'targetHandle'`)
 
-    const sourceType = templates.value[source.data.type].outputs[connection.sourceHandle].typeName
+    const sourceType = templates.value[source.data.type].outputs[connection.sourceHandle].type
 
-    const targetType = templates.value[target.data.type].inputs[connection.targetHandle].typeName
+    const targetType = templates.value[target.data.type].inputs[connection.targetHandle].type
 
     return sourceType === targetType
   }

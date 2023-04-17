@@ -151,7 +151,7 @@ def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
                         pipe.send(
                             IPCMessage(
                                 type=IPCMessageType.ERROR,
-                                msg=f"Node '{k}' ({type(v).__name__}) raised an exception \n{traceback.format_exc()}",
+                                msg=f"Node '{k}' ({type(v).__name__}) raised an exception. {traceback.format_exc()}",
                             )
                         )
                         return

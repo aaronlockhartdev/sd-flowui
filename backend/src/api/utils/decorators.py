@@ -22,8 +22,6 @@ class suppress_std:
     Adapted from https://stackoverflow.com/a/28321717
     """
 
-    __name__ = "suppress_std"
-
     def __init__(self, func):
         self.func = func
 

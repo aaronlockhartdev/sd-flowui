@@ -13,10 +13,12 @@ nodes: dict[str, Node] = {}
 class Connection(BaseModel):
     name: str
     type: type = Field(exclude=True)
-    typeName: str
 
-    def __init__(self, name: str, type: type):
-        super().__init__(name=name, type=type, typeName=type.__name__ if type else "")
+    def dict(self, *args, **kwargs):
+        res = super().dict(*args, **kwargs)
+        res["type"] = f"{self.type.__module__}.{self.type.__qualname__}"
+
+        return res
 
 
 class Value(BaseModel):
