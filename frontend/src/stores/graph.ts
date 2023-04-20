@@ -231,14 +231,6 @@ export const useGraphStore = defineStore('graph', () => {
 
     version.value++
 
-    console.log({
-      item: {
-        version: version.value - 1,
-        action: 'createNode',
-        ...node
-      }
-    })
-
     webSocketHandler.send('graph', {
       item: {
         version: version.value - 1,
