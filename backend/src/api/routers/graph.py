@@ -1,3 +1,10 @@
+from __future__ import annotations
+
+import enum
+from typing import Callable, Any, ForwardRef
+from pydantic import BaseModel, Field, create_model
+from pydantic.main import ModelMetaclass
+
 import logging
 import logging.config
 
@@ -28,46 +35,104 @@ async def read_graph():
     }
 
 
+class GraphQueue(BaseModel):
+    id: int | None
+
+
 @router.post("/queue")
-async def queue_job(queue: utils.GraphQueueSchema):
+async def queue_job(queue: GraphQueue):
     compute.executor.enqueue(compute_graph, id=queue.id)
+
+
+actions: dict[str, Schema] = {}
+
+Schema = ForwardRef("Schema", is_class=True)
+
+
+class SchemaMeta(ModelMetaclass):
+    def __new__(cls, name, bases, namespace):
+        class_ = super().__new__(cls, name, bases, namespace)
+
+        if Schema in bases:
+            actions[name[0].lower() + name[1:]] = class_
+
+        return class_
+
+
+class Schema(BaseModel, metaclass=SchemaMeta):
+    _func: Callable
+
+    version: int
+    action: str
+
+    class Config:
+        arbitrary_types_allowed = True
+        underscore_attrs_are_private = True
+
+
+class CreateNode(Schema):
+    _func = "add_node"
+
+    id: int
+    type: str
+    position: create_model("Position", x=(int, ...), y=(int, ...))
+    values: dict[str, Any]
+
+
+class DeleteNode(Schema):
+    _func = "remove_node"
+
+    id: int
+
+
+class UpdatePositionNode(Schema):
+    _func = "update_position_node"
+
+    id: int
+    position: create_model("Position", x=(int, ...), y=(int, ...))
+
+
+class UpdateValuesNode(Schema):
+    _func = "update_values_node"
+
+    id: int
+    values: dict[str, Any]
+
+
+class CreateEdge(Schema):
+    _func = "add_edge"
+
+    id: str
+    source: int
+    sourceHandle: str
+    target: int
+    targetHandle: str
+
+
+class DeleteEdge(Schema):
+    _func = "remove_edge"
+
+    id: str
+
+
+class GraphUpdate(Schema):
+    def __new__(cls, action: str, *args, **kwargs):
+        return actions[action](*args, action=action, **kwargs)
 
 
 @services.websocket_handler.on_message("graph")
 @services.websocket_handler.broadcast_func("graph")
-def handle_graph_updates(data, _: WebSocket):
+def handle_graph_updates(item: GraphUpdate):
     global graph_version
 
-    if data["version"] != graph_version:
-        return utils.GraphUpdateSchema(action=utils.GraphUpdateAction.SYNC_GRAPH)
+    if item.version != graph_version:
+        return {"action": "syncGraph"}
 
     graph_version += 1
-    data["version"] = graph_version
+    item.version = graph_version
 
-    schema = utils.GraphUpdateSchema(**data)
+    compute_graph.__getattribute__(item._func)(
+        **{k: v for k, v in item.dict().items() if k not in {"version", "action"}}
+    )
 
-    match data["action"]:
-        case utils.GraphUpdateAction.CREATE_NODE.value:
-            compute_graph.add_node(**data["node"])
-
-        case utils.GraphUpdateAction.DELETE_NODE.value:
-            compute_graph.remove_node(id=data["id"])
-
-        case utils.GraphUpdateAction.UPDATE_POSITION_NODE.value:
-            compute_graph.update_position_node(
-                data["node"]["id"], data["node"]["position"]
-            )
-
-        case utils.GraphUpdateAction.UPDATE_VALUES_NODE.value:
-            compute_graph.update_values_node(data["node"]["id"], data["node"]["values"])
-
-        case utils.GraphUpdateAction.CREATE_EDGE.value:
-            compute_graph.add_edge(**data["edge"])
-
-        case utils.GraphUpdateAction.DELETE_EDGE.value:
-            compute_graph.remove_edge(data["id"])
-
-        case _:
-            return utils.GraphUpdateSchema(action=utils.GraphUpdateAction.SYNC_GRAPH)
-
-    return schema
+    return item

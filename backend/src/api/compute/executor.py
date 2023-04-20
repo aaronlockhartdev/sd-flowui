@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import torch
 import signal
@@ -22,16 +24,15 @@ logging.config.dictConfig(utils.LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 
-@enum.unique
-class IPCMessageType(enum.IntEnum):
-    ERROR = enum.auto()
-    WARNING = enum.auto()
-    INFO = enum.auto()
-
-
 class IPCMessage(BaseModel):
-    type: IPCMessageType
+    type: Type
     msg: str
+
+    @enum.unique
+    class Type(enum.IntEnum):
+        ERROR = enum.auto()
+        WARNING = enum.auto()
+        INFO = enum.auto()
 
 
 class Executor:
@@ -56,18 +57,18 @@ class Executor:
             await self._pipe_callback.wait()
 
             try:
-                data = self._pipe.recv()
+                data: IPCMessage = self._pipe.recv()
             except EOFError:
                 continue
 
             d = {"device": f"{self._device.type}:{self._device.index}"}
 
             match data.type:
-                case IPCMessageType.ERROR:
+                case IPCMessage.Type.ERROR:
                     logger.error(data.msg, extra=d)
-                case IPCMessageType.WARNING:
+                case IPCMessage.Type.WARNING:
                     logger.warning(data.msg, extra=d)
-                case IPCMessageType.INFO:
+                case IPCMessage.Type.INFO:
                     logger.info(data.msg, extra=d)
 
             # TODO: do something with data
@@ -145,12 +146,12 @@ def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
                     try:
                         outputs[k] = v(**inputs)
                         pipe.send(
-                            IPCMessage(type=IPCMessageType.INFO, msg=str(outputs[k]))
+                            IPCMessage(type=IPCMessage.Type.INFO, msg=str(outputs[k]))
                         )
                     except Exception:
                         pipe.send(
                             IPCMessage(
-                                type=IPCMessageType.ERROR,
+                                type=IPCMessage.Type.ERROR,
                                 msg=f"Node '{k}' ({type(v).__name__}) raised an exception. {traceback.format_exc()}",
                             )
                         )
@@ -163,7 +164,7 @@ def process(device, queue: mp.Queue, pipe: Connection, shutdown_event: Event):
         except Exception:
             pipe.send(
                 IPCMessage(
-                    type=IPCMessageType.ERROR,
+                    type=IPCMessage.Type.ERROR,
                     msg=traceback.format_exc(),
                 )
             )

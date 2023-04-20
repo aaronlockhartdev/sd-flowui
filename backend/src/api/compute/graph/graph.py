@@ -3,7 +3,6 @@ from typing import Any
 
 import re
 import networkx as nx
-from fastapi import WebSocket
 
 import api.utils as utils
 
@@ -11,9 +10,6 @@ from . import node
 
 
 class ComputeGraph(nx.DiGraph):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def add_node(self, id: int, type: str, values: dict, position: dict) -> dict:
         obj = node.nodes[type](values, position)
 
@@ -60,20 +56,23 @@ class ComputeGraph(nx.DiGraph):
     def convert_node(self, id: int) -> utils.GraphNodeSchema:
         obj: node.Node = self.nodes[id]["obj"]
 
-        return utils.GraphNodeSchema(
-            id=id, type=type(obj).__name__, values=obj.values, position=obj.position
-        )
+        return {
+            "id": id,
+            "type": type(obj).__name__,
+            "values": obj.values,
+            "position": obj.position,
+        }
 
     def convert_edge(self, u: int, v: int) -> list[utils.GraphEdgeSchema]:
         map: tuple[str] = self.edges[u, v]["map"]
 
         return [
-            utils.GraphEdgeSchema(
-                id=f"e{u}{uh}-{v}{vh}",
-                source=u,
-                sourceHandle=uh,
-                target=v,
-                targetHandle=vh,
-            )
+            {
+                "id": f"e{u}{uh}-{v}{vh}",
+                "source": u,
+                "sourceHandle": uh,
+                "target": v,
+                "targetHandle": vh,
+            }
             for uh, vh in map
         ]

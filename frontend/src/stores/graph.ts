@@ -133,12 +133,12 @@ export const useGraphStore = defineStore('graph', () => {
     switch (data.action) {
       case undefined:
         throw new Error(`Required value 'action' not received`)
-      case 'create_node':
+      case 'createNode':
         if (!data.node) throw new Error(`Required value 'node' not received`)
 
         nodes.value.push(nodeToVueFlow(data.node))
         break
-      case 'delete_node':
+      case 'deleteNode':
         if (!data.id) throw new Error(`Required value 'id' not received`)
         if (typeof data.id === 'string') throw new Error(`'id' is of type 'string'`)
 
@@ -148,7 +148,7 @@ export const useGraphStore = defineStore('graph', () => {
         else throw new Error(`Invalid node ID ${data.id}`)
 
         break
-      case 'update_position_node':
+      case 'updatePositionNode':
         if (!data.node) throw new Error(`Required value 'node' not received`)
 
         const node = getNode(data.node.id)
@@ -161,7 +161,7 @@ export const useGraphStore = defineStore('graph', () => {
         node.position = data.node.position
 
         break
-      case 'update_values_node':
+      case 'updateValuesNode':
         if (!data.node) throw new Error(`Required value 'node' not received`)
 
         const node_ = getNode(data.node.id)
@@ -175,13 +175,13 @@ export const useGraphStore = defineStore('graph', () => {
 
         break
 
-      case 'create_edge':
+      case 'createEdge':
         if (!data.edge) throw new Error(`Required value 'edge' not received`)
 
         edges.value.push(edgeToVueFlow(data.edge))
 
         break
-      case 'delete_edge':
+      case 'deleteEdge':
         if (!data.id) throw new Error(`Required value 'id' not received`)
         if (typeof data.id === 'number') throw new Error(`'id' is of type 'number'`)
 
@@ -231,11 +231,20 @@ export const useGraphStore = defineStore('graph', () => {
 
     version.value++
 
+    console.log({
+      item: {
+        version: version.value - 1,
+        action: 'createNode',
+        ...node
+      }
+    })
+
     webSocketHandler.send('graph', {
-      version: version.value - 1,
-      action: 'create_node',
-      id: version.value - 1,
-      node: node
+      item: {
+        version: version.value - 1,
+        action: 'createNode',
+        ...node
+      }
     })
 
     return node.id
@@ -250,9 +259,11 @@ export const useGraphStore = defineStore('graph', () => {
     version.value++
 
     webSocketHandler.send('graph', {
-      version: version.value - 1,
-      action: 'delete_node',
-      id: id
+      item: {
+        version: version.value - 1,
+        action: 'deleteNode',
+        id: id
+      }
     })
   }
 
@@ -266,9 +277,9 @@ export const useGraphStore = defineStore('graph', () => {
     node.position = position
 
     webSocketHandler.send('graph', {
-      version: version.value - 1,
-      action: 'update_position_node',
-      node: {
+      item: {
+        version: version.value - 1,
+        action: 'updatePositionNode',
         id: id,
         position: position
       }
@@ -285,9 +296,9 @@ export const useGraphStore = defineStore('graph', () => {
     node.data.values = { ...node.data.values, ...values }
 
     webSocketHandler.send('graph', {
-      version: version.value - 1,
-      action: 'update_values_node',
-      node: {
+      item: {
+        version: version.value - 1,
+        action: 'updateValuesNode',
         id: id,
         values: values
       }
@@ -308,9 +319,11 @@ export const useGraphStore = defineStore('graph', () => {
     edges.value.push(edgeToVueFlow(edge))
 
     webSocketHandler.send('graph', {
-      version: version.value - 1,
-      action: 'create_edge',
-      edge: edge
+      item: {
+        version: version.value - 1,
+        action: 'createEdge',
+        ...edge
+      }
     })
 
     return edge.id
@@ -325,9 +338,11 @@ export const useGraphStore = defineStore('graph', () => {
     version.value++
 
     webSocketHandler.send('graph', {
-      version: version.value - 1,
-      action: 'delete_edge',
-      id: id
+      item: {
+        version: version.value - 1,
+        action: 'deleteEdge',
+        id: id
+      }
     })
   }
 

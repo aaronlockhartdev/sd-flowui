@@ -1,7 +1,16 @@
-from fastapi import WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
 import inspect
 import asyncio
+import functools
+
+from typing import get_type_hints, Any
+
+from fastapi import WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
+
+
+class WebSocketMsg(BaseModel):
+    stream: str
+    data: dict[str, Any]
 
 
 class WebSocketHandler:
@@ -10,14 +19,14 @@ class WebSocketHandler:
         self._on_message: dict[str, list[function]] = dict()
 
         @self.on_message("streams")
-        def _(data, websocket):
-            for stream in data["streams"]:
-                if data["action"] == "subscribe":
+        def _(streams, action, websocket: WebSocket):
+            for stream in streams:
+                if action == "subscribe":
                     if websocket in self._active:
                         self._active[websocket].add(stream)
                     else:
                         self._active[websocket] = {stream}
-                elif data["action"] == "unsubscribe":
+                elif action == "unsubscribe":
                     self._active[websocket].remove(stream)
 
             if websocket in self._active and not self._active[websocket]:
@@ -50,15 +59,27 @@ class WebSocketHandler:
         )
 
     async def receive(self, websocket: WebSocket):
-        msg = await websocket.receive_json()
+        msg = WebSocketMsg(**(await websocket.receive_json()))
 
         asyncs = []
 
-        for func in self._on_message[msg["stream"]]:
+        for func in self._on_message[msg.stream]:
+            typehints = get_type_hints(func)
+
+            kwargs = {
+                **msg.data,
+                **{
+                    k: v(**msg.data[k])
+                    for k, v in typehints.items()
+                    if issubclass(v, BaseModel)
+                },
+                **{k: websocket for k, v in typehints.items() if v is WebSocket},
+            }
+
             if asyncio.iscoroutinefunction(func):
-                asyncs.append(func(msg["data"], websocket))
+                asyncs.append(func(**kwargs))
             else:
-                func(msg["data"], websocket)
+                func(**kwargs)
 
         await asyncio.gather(*asyncs)
 
@@ -76,15 +97,30 @@ class WebSocketHandler:
     def broadcast_func(self, stream: str):
         def decorator(func):
             if inspect.isgeneratorfunction(func):
+                if asyncio.iscoroutinefunction(func):
 
-                async def wrapper(*args, **kwargs):
-                    for msg in func(*args, **kwargs):
-                        await self.broadcast(stream, msg)
+                    async def wrapper(*args, **kwargs):
+                        async for msg in func(*args, **kwargs):
+                            await self.broadcast(stream, msg)
 
-                return wrapper
+                else:
 
-            async def wrapper(*args, **kwargs):
-                await self.broadcast(stream, func(*args, **kwargs))
+                    async def wrapper(*args, **kwargs):
+                        for msg in func(*args, **kwargs):
+                            await self.broadcast(stream, msg)
+
+            else:
+                if asyncio.iscoroutinefunction(func):
+
+                    async def wrapper(*args, **kwargs):
+                        await self.broadcast(stream, await func(*args, **kwargs))
+
+                else:
+
+                    async def wrapper(*args, **kwargs):
+                        await self.broadcast(stream, func(*args, **kwargs))
+
+            functools.update_wrapper(wrapper, func)
 
             return wrapper
 
